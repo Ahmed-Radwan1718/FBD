@@ -424,13 +424,11 @@ line.canvas-shape.saved-shape {
   border-color: rgba(130, 32, 32, 0.38);
 }
 
-.mode-switch {
+.mode-switch,
+.scale-switch {
   position: absolute;
   z-index: 30;
-  top: 16px;
   left: 50%;
-  width: 116px;
-  height: 40px;
   padding: 4px;
   border: 1px solid var(--line-strong);
   border-radius: 999px;
@@ -444,7 +442,20 @@ line.canvas-shape.saved-shape {
   grid-template-columns: 1fr 1fr;
 }
 
-.mode-switch button {
+.mode-switch {
+  top: 16px;
+  width: 116px;
+  height: 40px;
+}
+
+.scale-switch {
+  top: 64px;
+  width: 176px;
+  height: 36px;
+}
+
+.mode-switch button,
+.scale-switch button {
   position: relative;
   z-index: 2;
   border: 0;
@@ -457,25 +468,61 @@ line.canvas-shape.saved-shape {
   transition: color 160ms ease;
 }
 
-.mode-switch button.is-active {
+.mode-switch button.is-active,
+.scale-switch button.is-active {
   color: white;
 }
 
-.mode-thumb {
+.mode-thumb,
+.scale-thumb {
   position: absolute;
   z-index: 1;
   top: 4px;
   left: 4px;
-  width: 53px;
-  height: 30px;
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.13);
   transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.mode-thumb {
+  width: 53px;
+  height: 30px;
+}
+
 .mode-thumb.is-3d {
   transform: translateX(54px);
+}
+
+.scale-thumb {
+  width: 83px;
+  height: 28px;
+}
+
+.scale-thumb.is-to-scale {
+  transform: translateX(84px);
+}
+
+.scale-status {
+  position: absolute;
+  z-index: 25;
+  right: 18px;
+  bottom: 18px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #777570;
+  box-shadow: 0 2px 8px rgba(20, 18, 15, 0.035);
+  backdrop-filter: blur(10px);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  pointer-events: none;
+}
+
+.scale-status.is-to-scale {
+  color: #343330;
 }
 
 @media (max-width: 640px) {
@@ -491,5 +538,17 @@ line.canvas-shape.saved-shape {
     left: auto;
     right: 12px;
     transform: none;
+  }
+
+  .scale-switch {
+    top: 60px;
+    left: auto;
+    right: 12px;
+    transform: none;
+  }
+
+  .scale-status {
+    right: 12px;
+    bottom: 12px;
   }
 }
