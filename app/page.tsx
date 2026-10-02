@@ -66,6 +66,10 @@ export default function Home() {
     ? getShapeDimensions(selectedDrawnShape)
     : null;
 
+  const selectedBounds = selectedDrawnShape
+    ? getShapeBounds(selectedDrawnShape)
+    : null;
+
   function getCanvasPoint(event: ReactPointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
 
@@ -119,6 +123,29 @@ export default function Home() {
     return {
       width,
       height,
+    };
+  }
+
+  function getShapeBounds(shape: DrawnShape) {
+    const dx = shape.endX - shape.startX;
+    const dy = shape.endY - shape.startY;
+
+    if (shape.shape === "Square" || shape.shape === "Circle") {
+      const size = Math.max(Math.abs(dx), Math.abs(dy));
+
+      return {
+        x: dx < 0 ? shape.startX - size : shape.startX,
+        y: dy < 0 ? shape.startY - size : shape.startY,
+        width: size,
+        height: size,
+      };
+    }
+
+    return {
+      x: Math.min(shape.startX, shape.endX),
+      y: Math.min(shape.startY, shape.endY),
+      width: Math.abs(dx),
+      height: Math.abs(dy),
     };
   }
 
@@ -347,6 +374,79 @@ export default function Home() {
           )}
         </svg>
 
+        {selectedDrawnShape && selectedDimensions && selectedBounds && (
+          <div
+            className="shape-controls-layer"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <label
+              className="shape-dimension-control shape-dimension-width"
+              style={{
+                left: selectedBounds.x + selectedBounds.width / 2,
+                top: selectedBounds.y,
+              }}
+            >
+              <input
+                type="number"
+                min="1"
+                step="1"
+                aria-label="Shape width"
+                value={Math.round(selectedDimensions.width)}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) =>
+                  updateShapeDimension(
+                    selectedDrawnShape.id,
+                    "width",
+                    event.target.value,
+                  )
+                }
+              />
+              <span>px</span>
+            </label>
+
+            {selectedDrawnShape.shape !== "Square" &&
+              selectedDrawnShape.shape !== "Circle" && (
+                <label
+                  className="shape-dimension-control shape-dimension-height"
+                  style={{
+                    left: selectedBounds.x + selectedBounds.width,
+                    top: selectedBounds.y + selectedBounds.height / 2,
+                  }}
+                >
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    aria-label="Shape height"
+                    value={Math.round(selectedDimensions.height)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateShapeDimension(
+                        selectedDrawnShape.id,
+                        "height",
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <span>px</span>
+                </label>
+              )}
+
+            <button
+              className="shape-delete-control"
+              type="button"
+              aria-label="Delete shape"
+              style={{
+                left: selectedBounds.x + selectedBounds.width,
+                top: selectedBounds.y,
+              }}
+              onClick={deleteSelectedShape}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <div className="canvas-origin" aria-hidden="true">
           <span className="axis-x" />
           <span className="axis-y" />
@@ -398,94 +498,6 @@ export default function Home() {
             </div>
           )}
         </div>
-
-        {selectedDrawnShape && selectedDimensions && (
-          <div className="shape-inspector">
-            <div className="inspector-heading">
-              <span>Selected shape</span>
-              <strong>{selectedDrawnShape.shape}</strong>
-            </div>
-
-            {selectedDrawnShape.shape === "Square" ||
-            selectedDrawnShape.shape === "Circle" ? (
-              <label className="dimension-field">
-                <span>
-                  {selectedDrawnShape.shape === "Circle" ? "Diameter" : "Size"}
-                </span>
-                <div className="dimension-input">
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={Math.round(selectedDimensions.width)}
-                    onChange={(event) =>
-                      updateShapeDimension(
-                        selectedDrawnShape.id,
-                        "width",
-                        event.target.value,
-                      )
-                    }
-                  />
-                  <span>px</span>
-                </div>
-              </label>
-            ) : (
-              <div className="dimension-grid">
-                <label className="dimension-field">
-                  <span>
-                    {selectedDrawnShape.shape === "Line" ? "X span" : "Width"}
-                  </span>
-                  <div className="dimension-input">
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={Math.round(selectedDimensions.width)}
-                      onChange={(event) =>
-                        updateShapeDimension(
-                          selectedDrawnShape.id,
-                          "width",
-                          event.target.value,
-                        )
-                      }
-                    />
-                    <span>px</span>
-                  </div>
-                </label>
-
-                <label className="dimension-field">
-                  <span>
-                    {selectedDrawnShape.shape === "Line" ? "Y span" : "Height"}
-                  </span>
-                  <div className="dimension-input">
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      value={Math.round(selectedDimensions.height)}
-                      onChange={(event) =>
-                        updateShapeDimension(
-                          selectedDrawnShape.id,
-                          "height",
-                          event.target.value,
-                        )
-                      }
-                    />
-                    <span>px</span>
-                  </div>
-                </label>
-              </div>
-            )}
-
-            <button
-              className="delete-shape-button"
-              type="button"
-              onClick={deleteSelectedShape}
-            >
-              Delete shape
-            </button>
-          </div>
-        )}
       </aside>
 
       <div className="mode-switch" aria-label="Canvas dimension">
