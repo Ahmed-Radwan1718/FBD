@@ -109,6 +109,44 @@ line.canvas-shape.saved-shape {
   fill: none;
 }
 
+.diagram-overlay {
+  fill: none;
+  stroke: #171717;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.diagram-overlay line,
+.diagram-overlay path,
+.diagram-overlay circle,
+.diagram-overlay polyline {
+  vector-effect: non-scaling-stroke;
+}
+
+.diagram-overlay .support-body {
+  fill: #ffffff;
+}
+
+.diagram-overlay-force text {
+  fill: #171717;
+  stroke: none;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 750;
+  pointer-events: none;
+}
+
+.diagram-overlay.connection-cable line {
+  stroke-dasharray: 5 4;
+}
+
+.diagram-overlay.is-draft {
+  opacity: 0.55;
+  stroke-dasharray: 6 5;
+}
+
 .shape-measurements-layer {
   position: absolute;
   inset: 0;
@@ -301,9 +339,14 @@ line.canvas-shape.saved-shape {
 }
 
 .tool-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.brand-row + .tool-section {
   margin-top: 20px;
   padding-top: 12px;
-  border-top: 1px solid var(--line);
 }
 
 .section-trigger {
