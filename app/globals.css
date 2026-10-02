@@ -160,41 +160,143 @@ line.canvas-shape.saved-shape {
 
 .shape-measurement {
   position: absolute;
-  min-width: 162px;
-  height: 32px;
-  padding: 0 8px 0 10px;
-  border: 1px solid rgba(17, 17, 17, 0.12);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.96);
-  color: #55534f;
-  box-shadow: 0 1px 3px rgba(17, 17, 17, 0.06);
+  color: #5f5d58;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: auto;
+}
+
+.shape-measurement-guide {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  background: rgba(17, 17, 17, 0.28);
+  pointer-events: none;
+}
+
+.shape-measurement-horizontal,
+.shape-measurement-line {
+  transform: translateX(-50%);
+}
+
+.shape-measurement-horizontal .shape-measurement-guide {
+  left: 50%;
+  top: 50%;
+  width: var(--measurement-guide-length);
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::before,
+.shape-measurement-horizontal .shape-measurement-guide::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 7px;
+  background: rgba(17, 17, 17, 0.38);
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::before {
+  left: 0;
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::after {
+  right: 0;
+}
+
+.shape-measurement-vertical {
+  transform: translateY(-50%);
+}
+
+.shape-measurement-vertical .shape-measurement-guide {
+  left: 50%;
+  top: 50%;
+  width: 1px;
+  height: var(--measurement-guide-length);
+  transform: translate(-50%, -50%);
+}
+
+.shape-measurement-vertical .shape-measurement-guide::before,
+.shape-measurement-vertical .shape-measurement-guide::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  width: 7px;
+  height: 1px;
+  background: rgba(17, 17, 17, 0.38);
+}
+
+.shape-measurement-vertical .shape-measurement-guide::before {
+  top: 0;
+}
+
+.shape-measurement-vertical .shape-measurement-guide::after {
+  bottom: 0;
+}
+
+.shape-measurement-line .shape-measurement-guide {
+  display: none;
+}
+
+.shape-measurement-display {
+  position: relative;
+  z-index: 2;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(246, 245, 241, 0.9);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: text;
   transition:
-    border-color 130ms ease,
+    background 130ms ease,
+    color 130ms ease,
     box-shadow 130ms ease;
 }
 
-.shape-measurement.is-selected {
-  border-color: rgba(17, 17, 17, 0.24);
+.shape-measurement-display:hover {
+  background: rgba(255, 255, 255, 0.96);
+  color: #171717;
+  box-shadow: 0 1px 4px rgba(17, 17, 17, 0.08);
+}
+
+.shape-measurement.is-selected .shape-measurement-display {
   color: #171717;
 }
 
-.shape-measurement:hover,
-.shape-measurement:focus-within {
-  border-color: rgba(17, 17, 17, 0.4);
-  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.1);
+.shape-measurement-unit {
+  color: #8b8984;
+  font-weight: 600;
 }
 
-.shape-measurement input {
-  width: 48px;
+.shape-measurement-editor {
+  position: relative;
+  z-index: 3;
+  height: 30px;
+  padding: 0 7px 0 9px;
+  border: 1px solid rgba(17, 17, 17, 0.22);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shape-measurement-editor input {
+  width: 52px;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -207,17 +309,17 @@ line.canvas-shape.saved-shape {
   appearance: textfield;
 }
 
-.shape-measurement input::-webkit-inner-spin-button,
-.shape-measurement input::-webkit-outer-spin-button {
+.shape-measurement-editor input::-webkit-inner-spin-button,
+.shape-measurement-editor input::-webkit-outer-spin-button {
   margin: 0;
   appearance: none;
 }
 
 .shape-measurement-separator {
-  color: #8a8883;
+  color: #aaa7a1;
 }
 
-.shape-measurement select {
+.shape-measurement-editor select {
   width: 84px;
   min-width: 0;
   padding: 0;
@@ -227,15 +329,6 @@ line.canvas-shape.saved-shape {
   color: #55534f;
   font: inherit;
   cursor: pointer;
-}
-
-.shape-measurement-horizontal,
-.shape-measurement-line {
-  transform: translateX(-50%);
-}
-
-.shape-measurement-vertical {
-  transform: translateY(-50%);
 }
 
 .canvas-grid {
