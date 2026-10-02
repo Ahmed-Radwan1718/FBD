@@ -37,17 +37,6 @@ type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
 
 const PIXELS_PER_METER = 100;
 
-const lengthUnits: { value: LengthUnit; label: string }[] = [
-  { value: "km", label: "km" },
-  { value: "m", label: "m" },
-  { value: "cm", label: "cm" },
-  { value: "mm", label: "mm" },
-  { value: "µm", label: "µm" },
-  { value: "nm", label: "nm" },
-  { value: "in", label: "in" },
-  { value: "ft", label: "ft" },
-];
-
 const metersPerUnit: Record<LengthUnit, number> = {
   km: 1000,
   m: 1,
@@ -112,7 +101,7 @@ export default function Home() {
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
-  const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
+  const dimensionUnit: LengthUnit = "cm";
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -122,10 +111,6 @@ export default function Home() {
 
   const selectedDrawnShape =
     drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
-
-  const selectedDimensions = selectedDrawnShape
-    ? getShapeDimensions(selectedDrawnShape)
-    : null;
 
   const selectedBounds = selectedDrawnShape
     ? getShapeBounds(selectedDrawnShape)
@@ -219,25 +204,6 @@ export default function Home() {
     };
   }
 
-  function getShapeDimensions(shape: DrawnShape) {
-    const width = Math.abs(shape.endX - shape.startX);
-    const height = Math.abs(shape.endY - shape.startY);
-
-    if (shape.shape === "Square" || shape.shape === "Circle") {
-      const size = Math.max(width, height);
-
-      return {
-        width: size,
-        height: size,
-      };
-    }
-
-    return {
-      width,
-      height,
-    };
-  }
-
   function getShapeBounds(shape: DrawnShape) {
     const dx = shape.endX - shape.startX;
     const dy = shape.endY - shape.startY;
@@ -264,10 +230,6 @@ export default function Home() {
   function pixelsToUnit(pixels: number, unit: LengthUnit) {
     const meters = pixels / PIXELS_PER_METER;
     return meters / metersPerUnit[unit];
-  }
-
-  function unitToPixels(value: number, unit: LengthUnit) {
-    return value * metersPerUnit[unit] * PIXELS_PER_METER;
   }
 
   function formatDimensionValue(pixels: number) {
@@ -360,49 +322,6 @@ export default function Home() {
           {formatDimensionLabel(bounds.height)}
         </span>
       </div>
-    );
-  }
-
-  function updateShapeDimension(
-    id: number,
-    dimension: "width" | "height",
-    rawValue: string,
-  ) {
-    const enteredValue = Number(rawValue);
-
-    if (!Number.isFinite(enteredValue) || enteredValue <= 0) return;
-
-    const value = unitToPixels(enteredValue, dimensionUnit);
-
-    setDrawnShapes((current) =>
-      current.map((shape) => {
-        if (shape.id !== id) return shape;
-
-        const dx = shape.endX - shape.startX;
-        const dy = shape.endY - shape.startY;
-        const xDirection = dx < 0 ? -1 : 1;
-        const yDirection = dy < 0 ? -1 : 1;
-
-        if (shape.shape === "Square" || shape.shape === "Circle") {
-          return {
-            ...shape,
-            endX: shape.startX + xDirection * value,
-            endY: shape.startY + yDirection * value,
-          };
-        }
-
-        return {
-          ...shape,
-          endX:
-            dimension === "width"
-              ? shape.startX + xDirection * value
-              : shape.endX,
-          endY:
-            dimension === "height"
-              ? shape.startY + yDirection * value
-              : shape.endY,
-        };
-      }),
     );
   }
 
@@ -687,123 +606,28 @@ export default function Home() {
           </div>
         )}
 
-        {selectedDrawnShape &&
-          selectedDimensions &&
-          selectedScreenBounds && (
-            <div
-              className="shape-controls-layer"
-              onPointerDown={(event) => event.stopPropagation()}
-              onWheel={(event) => event.stopPropagation()}
+        {selectedDrawnShape && selectedScreenBounds && (
+          <div
+            className="shape-controls-layer"
+            onPointerDown={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
+          >
+            <button
+              className="shape-delete-control"
+              type="button"
+              aria-label="Delete shape"
+              style={{
+                left:
+                  selectedScreenBounds.x +
+                  selectedScreenBounds.width,
+                top: selectedScreenBounds.y,
+              }}
+              onClick={deleteSelectedShape}
             >
-              <label
-                className="shape-dimension-control shape-dimension-width"
-                style={{
-                  left:
-                    selectedScreenBounds.x +
-                    selectedScreenBounds.width / 2,
-                  top: selectedScreenBounds.y,
-                }}
-              >
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  aria-label="Shape width"
-                  value={formatDimensionValue(selectedDimensions.width)}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) =>
-                    updateShapeDimension(
-                      selectedDrawnShape.id,
-                      "width",
-                      event.target.value,
-                    )
-                  }
-                />
-
-                <span className="dimension-unit">
-                  <select
-                    aria-label="Dimension unit"
-                    value={dimensionUnit}
-                    onChange={(event) =>
-                      setDimensionUnit(event.target.value as LengthUnit)
-                    }
-                  >
-                    {lengthUnits.map((unit) => (
-                      <option key={unit.value} value={unit.value}>
-                        {unit.label}
-                      </option>
-                    ))}
-                  </select>
-                </span>
-              </label>
-
-              {selectedDrawnShape.shape !== "Square" &&
-                selectedDrawnShape.shape !== "Circle" && (
-                  <label
-                    className="shape-dimension-control shape-dimension-height"
-                    style={{
-                      left:
-                        selectedScreenBounds.x +
-                        selectedScreenBounds.width,
-                      top:
-                        selectedScreenBounds.y +
-                        selectedScreenBounds.height / 2,
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      aria-label="Shape height"
-                      value={formatDimensionValue(
-                        selectedDimensions.height,
-                      )}
-                      onFocus={(event) => event.currentTarget.select()}
-                      onChange={(event) =>
-                        updateShapeDimension(
-                          selectedDrawnShape.id,
-                          "height",
-                          event.target.value,
-                        )
-                      }
-                    />
-
-                    <span className="dimension-unit">
-                      <select
-                        aria-label="Dimension unit"
-                        value={dimensionUnit}
-                        onChange={(event) =>
-                          setDimensionUnit(
-                            event.target.value as LengthUnit,
-                          )
-                        }
-                      >
-                        {lengthUnits.map((unit) => (
-                          <option key={unit.value} value={unit.value}>
-                            {unit.label}
-                          </option>
-                        ))}
-                      </select>
-                    </span>
-                  </label>
-                )}
-
-              <button
-                className="shape-delete-control"
-                type="button"
-                aria-label="Delete shape"
-                style={{
-                  left:
-                    selectedScreenBounds.x +
-                    selectedScreenBounds.width,
-                  top: selectedScreenBounds.y,
-                }}
-                onClick={deleteSelectedShape}
-              >
-                ×
-              </button>
-            </div>
-          )}
+              ×
+            </button>
+          </div>
+        )}
 
         <div className="canvas-origin" aria-hidden="true">
           <span className="axis-x" />
