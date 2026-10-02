@@ -47,6 +47,7 @@ type ForceItem = OverlayGeometry & {
   kind: ForceTool;
   name: string;
   magnitude: number;
+  shapeId?: number;
 };
 
 type SupportItem = OverlayGeometry & {
@@ -123,7 +124,7 @@ const connectionTools: ConnectionTool[] = ["Hinge", "Cable", "Spring"];
 
 const forceLabels: Record<ForceTool, string> = {
   "Applied Force": "F",
-  "Applied Load": "M",
+  "Applied Load": "w",
 };
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -177,8 +178,10 @@ function ToolIcon({ tool }: { tool: SidebarTool }) {
       )}
       {tool === "Applied Load" && (
         <>
-          <path d="M7 7.5a7 7 0 1 1-1 9" {...common} />
-          <path d="m3.5 13.5 2.5 3 3-2.5" {...common} />
+          <path d="M4 6h16" {...common} />
+          <path d="M6 6v11m0 0-2.5-3m2.5 3 2.5-3" {...common} />
+          <path d="M12 6v11m0 0-2.5-3m2.5 3 2.5-3" {...common} />
+          <path d="M18 6v11m0 0-2.5-3m2.5 3 2.5-3" {...common} />
         </>
       )}
       {tool === "Pin Support" && (
@@ -443,14 +446,15 @@ export default function Home() {
     }
 
     if (selectedForceTool) {
+      if (selectedForceTool === "Applied Load") {
+        return;
+      }
+
       setDraftOverlay({
         category: "force",
         kind: selectedForceTool,
         name: forceLabels[selectedForceTool],
-        magnitude:
-          selectedForceTool === "Applied Load"
-            ? 100 * metersPerUnit[dimensionUnit]
-            : 100,
+        magnitude: 100,
         startX: point.x,
         startY: point.y,
         endX: point.x,
@@ -490,6 +494,45 @@ export default function Home() {
     id: number,
   ) {
     event.stopPropagation();
+
+    if (selectedForceTool === "Applied Load") {
+      const shape = drawnShapes.find((candidate) => candidate.id === id);
+
+      if (!shape) return;
+
+      const displayShape = getDisplayShape(shape);
+      const bounds = getShapeBounds(displayShape);
+      const anchorX =
+        displayShape.shape === "Line"
+          ? (displayShape.startX + displayShape.endX) / 2
+          : bounds.x + bounds.width / 2;
+      const anchorY =
+        displayShape.shape === "Line"
+          ? (displayShape.startY + displayShape.endY) / 2
+          : bounds.y;
+      const arrowLength = 36 / zoom;
+      const loadId = Date.now();
+
+      setOverlayItems((current) => [
+        ...current,
+        {
+          id: loadId,
+          category: "force",
+          kind: "Applied Load",
+          name: forceLabels["Applied Load"],
+          magnitude: 100 / metersPerUnit[dimensionUnit],
+          shapeId: id,
+          startX: anchorX,
+          startY: anchorY - arrowLength,
+          endX: anchorX,
+          endY: anchorY,
+        },
+      ]);
+      setSelectedShapeId(null);
+      setSelectedForceId(loadId);
+      return;
+    }
+
     event.currentTarget.setPointerCapture(event.pointerId);
 
     clearDrawingTools();
@@ -510,11 +553,21 @@ export default function Home() {
     id: number,
   ) {
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
 
     clearDrawingTools();
     setSelectedShapeId(null);
     setSelectedForceId(id);
+
+    const forceItem = overlayItems.find(
+      (item) => item.category === "force" && item.id === id,
+    );
+
+    if (forceItem?.category === "force" && forceItem.kind === "Applied Load") {
+      dragStateRef.current = null;
+      return;
+    }
+
+    event.currentTarget.setPointerCapture(event.pointerId);
 
     dragStateRef.current = {
       id,
@@ -707,6 +760,26 @@ export default function Home() {
 
   function formatDimensionValue(meters: number) {
     const value = meters / metersPerUnit[dimensionUnit];
+    const absoluteValue = Math.abs(value);
+
+    let decimals = 3;
+
+    if (absoluteValue >= 100) {
+      decimals = 1;
+    } else if (absoluteValue >= 10) {
+      decimals = 2;
+    } else if (absoluteValue < 1) {
+      decimals = 6;
+    }
+
+    return value
+      .toFixed(decimals)
+      .replace(/\.0+$/, "")
+      .replace(/(\.\d*?)0+$/, "$1");
+  }
+
+  function formatLoadMagnitude(newtonsPerMeter: number) {
+    const value = newtonsPerMeter * metersPerUnit[dimensionUnit];
     const absoluteValue = Math.abs(value);
 
     let decimals = 3;
@@ -982,11 +1055,22 @@ export default function Home() {
   function deleteSelectedShape() {
     if (selectedShapeId === null) return;
 
+    const deletedShapeId = selectedShapeId;
     const nextShapes = drawnShapes.filter(
-      (shape) => shape.id !== selectedShapeId,
+      (shape) => shape.id !== deletedShapeId,
     );
 
     setDrawnShapes(nextShapes);
+    setOverlayItems((current) =>
+      current.filter(
+        (item) =>
+          !(
+            item.category === "force" &&
+            item.kind === "Applied Load" &&
+            item.shapeId === deletedShapeId
+          ),
+      ),
+    );
     setMeasurementDrafts({});
     setActiveMeasurement(null);
     setSelectedShapeId(null);
@@ -1040,11 +1124,22 @@ export default function Home() {
 
       if (selectedShapeId === null) return;
 
+      const deletedShapeId = selectedShapeId;
       const nextShapes = drawnShapes.filter(
-        (shape) => shape.id !== selectedShapeId,
+        (shape) => shape.id !== deletedShapeId,
       );
 
       setDrawnShapes(nextShapes);
+      setOverlayItems((current) =>
+        current.filter(
+          (item) =>
+            !(
+              item.category === "force" &&
+              item.kind === "Applied Load" &&
+              item.shapeId === deletedShapeId
+            ),
+        ),
+      );
       setMeasurementDrafts({});
       setActiveMeasurement(null);
       setSelectedShapeId(null);
@@ -1250,7 +1345,7 @@ export default function Home() {
               ...item,
               magnitude:
                 item.kind === "Applied Load"
-                  ? magnitude * metersPerUnit[dimensionUnit]
+                  ? magnitude / metersPerUnit[dimensionUnit]
                   : magnitude,
             }
           : item,
@@ -1539,6 +1634,161 @@ export default function Home() {
     ]
       .filter(Boolean)
       .join(" ");
+
+    if (item.category === "force" && item.kind === "Applied Load") {
+      const targetShape =
+        item.shapeId === undefined
+          ? null
+          : drawnShapes.find((shape) => shape.id === item.shapeId) ?? null;
+
+      if (!targetShape) return null;
+
+      const displayShape = getDisplayShape(targetShape);
+      const bounds = getShapeBounds(displayShape);
+      const spanStart =
+        displayShape.shape === "Line"
+          ? { x: displayShape.startX, y: displayShape.startY }
+          : { x: bounds.x, y: bounds.y };
+      const spanEnd =
+        displayShape.shape === "Line"
+          ? { x: displayShape.endX, y: displayShape.endY }
+          : { x: bounds.x + bounds.width, y: bounds.y };
+      const spanDeltaX = spanEnd.x - spanStart.x;
+      const spanDeltaY = spanEnd.y - spanStart.y;
+      const spanLength = Math.max(1, Math.hypot(spanDeltaX, spanDeltaY));
+      const arrowCount = Math.max(
+        3,
+        Math.min(9, Math.round((spanLength * zoom) / 48) + 1),
+      );
+      const directionDeltaX = item.endX - item.startX;
+      const directionDeltaY = item.endY - item.startY;
+      const directionLength = Math.max(
+        1,
+        Math.hypot(directionDeltaX, directionDeltaY),
+      );
+      const directionX = directionDeltaX / directionLength;
+      const directionY = directionDeltaY / directionLength;
+      const arrowLength = 36 / zoom;
+      const loadArrows = Array.from({ length: arrowCount }, (_, index) => {
+        const progress = arrowCount === 1 ? 0.5 : index / (arrowCount - 1);
+        const endX = spanStart.x + spanDeltaX * progress;
+        const endY = spanStart.y + spanDeltaY * progress;
+
+        return {
+          endX,
+          endY,
+          startX: endX - directionX * arrowLength,
+          startY: endY - directionY * arrowLength,
+        };
+      });
+      const firstArrow = loadArrows[0];
+      const lastArrow = loadArrows[loadArrows.length - 1];
+      const labelX = (firstArrow.startX + lastArrow.startX) / 2;
+      const labelY = (firstArrow.startY + lastArrow.startY) / 2;
+
+      return (
+        <g
+          key={key}
+          className={`${className} applied-load`}
+          onPointerDown={
+            !draft && "id" in item
+              ? (event) => handleForcePointerDown(event, item.id)
+              : undefined
+          }
+        >
+          <line
+            className="applied-load-hit-target"
+            x1={firstArrow.startX}
+            y1={firstArrow.startY}
+            x2={lastArrow.startX}
+            y2={lastArrow.startY}
+          />
+          <line
+            className="applied-load-cap"
+            x1={firstArrow.startX}
+            y1={firstArrow.startY}
+            x2={lastArrow.startX}
+            y2={lastArrow.startY}
+          />
+
+          {loadArrows.map((arrow, index) => (
+            <line
+              key={index}
+              className="applied-load-arrow"
+              x1={arrow.startX}
+              y1={arrow.startY}
+              x2={arrow.endX}
+              y2={arrow.endY}
+              markerEnd="url(#force-arrowhead)"
+            />
+          ))}
+
+          {isSelectedForce && "id" in item ? (
+            <foreignObject
+              className="force-inline-editor-object"
+              x={labelX - 103}
+              y={labelY - 48}
+              width={206}
+              height={36}
+            >
+              <div
+                className="force-inline-editor"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <input
+                  className="force-inline-name"
+                  type="text"
+                  aria-label="Load name"
+                  title="Load name"
+                  value={item.name}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) =>
+                    updateForceName(item.id, event.currentTarget.value)
+                  }
+                />
+
+                <span className="force-inline-separator" aria-hidden="true" />
+
+                <label className="force-inline-value" title="Load intensity">
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    aria-label="Load intensity"
+                    value={formatLoadMagnitude(item.magnitude)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateForceMagnitude(item.id, event.currentTarget.value)
+                    }
+                  />
+                  <span>{`N/${dimensionUnit}`}</span>
+                </label>
+
+                <span className="force-inline-separator" aria-hidden="true" />
+
+                <label className="force-inline-value" title="Load direction">
+                  <input
+                    type="number"
+                    step="any"
+                    aria-label="Load angle"
+                    value={Number(getForceAngle(item).toFixed(1))}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateForceAngle(item.id, event.currentTarget.value)
+                    }
+                  />
+                  <span>°</span>
+                </label>
+              </div>
+            </foreignObject>
+          ) : (
+            <text x={labelX + 8 / zoom} y={labelY - 8 / zoom}>
+              {item.name} = {formatLoadMagnitude(item.magnitude)} N/{dimensionUnit}
+            </text>
+          )}
+        </g>
+      );
+    }
 
     if (item.category === "force") {
       const midpointX = (item.startX + item.endX) / 2;
@@ -2053,6 +2303,12 @@ export default function Home() {
                     type="button"
                     key={tool}
                     aria-pressed={active}
+                    disabled={tool === "Applied Load" && drawnShapes.length === 0}
+                    title={
+                      tool === "Applied Load" && drawnShapes.length === 0
+                        ? "Draw a shape before applying a distributed load"
+                        : undefined
+                    }
                     onClick={() => toggleForceTool(tool)}
                   >
                     <ToolIcon tool={tool} />
