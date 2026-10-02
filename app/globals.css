@@ -144,9 +144,29 @@ line.canvas-shape.saved-shape {
   pointer-events: stroke;
 }
 
-.diagram-overlay-force.is-selected > line:not(.force-hit-target) {
+.diagram-overlay-force.is-selected > line:not(.force-hit-target):not(.force-rotate-guide) {
   stroke-width: 3;
   filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.18));
+}
+
+.diagram-overlay-force .force-rotate-guide {
+  stroke: rgba(17, 17, 17, 0.28);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  pointer-events: none;
+}
+
+.diagram-overlay-force .force-rotate-handle {
+  fill: #ffffff;
+  stroke: #171717;
+  stroke-width: 1.5;
+  cursor: grab;
+  pointer-events: all;
+  filter: drop-shadow(0 1px 2px rgba(17, 17, 17, 0.16));
+}
+
+.diagram-overlay-force .force-rotate-handle:active {
+  cursor: grabbing;
 }
 
 .diagram-overlay-force text {
