@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   CSSProperties,
   PointerEvent as ReactPointerEvent,
@@ -954,6 +954,7 @@ export default function Home() {
 
     setDrawnShapes(nextShapes);
     setMeasurementDrafts({});
+    setActiveMeasurement(null);
     setSelectedShapeId(null);
 
     if (scaleMode === "to-scale") {
@@ -965,6 +966,50 @@ export default function Home() {
       }
     }
   }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (selectedShapeId === null) return;
+
+      const target = event.target as HTMLElement | null;
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const nextShapes = drawnShapes.filter(
+        (shape) => shape.id !== selectedShapeId,
+      );
+
+      setDrawnShapes(nextShapes);
+      setMeasurementDrafts({});
+      setActiveMeasurement(null);
+      setSelectedShapeId(null);
+
+      if (scaleMode === "to-scale") {
+        if (nextShapes.length > 0) {
+          requestAnimationFrame(() => fitToScaleView(nextShapes));
+        } else {
+          setZoom(1);
+          setViewportOffset({ x: 0, y: 0 });
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [drawnShapes, scaleMode, selectedShapeId]);
 
   function getOverlayBounds(item: OverlayItem) {
     if (
