@@ -24,6 +24,32 @@ type DragState = {
   lastClientY: number;
 };
 
+type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
+
+const PIXELS_PER_METER = 100;
+
+const lengthUnits: { value: LengthUnit; label: string }[] = [
+  { value: "km", label: "km" },
+  { value: "m", label: "m" },
+  { value: "cm", label: "cm" },
+  { value: "mm", label: "mm" },
+  { value: "µm", label: "µm" },
+  { value: "nm", label: "nm" },
+  { value: "in", label: "in" },
+  { value: "ft", label: "ft" },
+];
+
+const metersPerUnit: Record<LengthUnit, number> = {
+  km: 1000,
+  m: 1,
+  cm: 0.01,
+  mm: 0.001,
+  µm: 0.000001,
+  nm: 0.000000001,
+  in: 0.0254,
+  ft: 0.3048,
+};
+
 const shapes: Shape[] = ["Square", "Rectangle", "Circle", "Triangle", "Line"];
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -58,11 +84,11 @@ function ShapeIcon({ shape }: { shape: Shape }) {
   );
 }
 
-export default function Home() {
   const [mode, setMode] = useState<ViewMode>("2D");
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
+  const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
@@ -166,14 +192,45 @@ export default function Home() {
     };
   }
 
+  function pixelsToUnit(pixels: number, unit: LengthUnit) {
+    const meters = pixels / PIXELS_PER_METER;
+    return meters / metersPerUnit[unit];
+  }
+
+  function unitToPixels(value: number, unit: LengthUnit) {
+    return value * metersPerUnit[unit] * PIXELS_PER_METER;
+  }
+
+  function formatDimensionValue(pixels: number) {
+    const value = pixelsToUnit(pixels, dimensionUnit);
+    const absoluteValue = Math.abs(value);
+
+    let decimals = 3;
+
+    if (absoluteValue >= 100) {
+      decimals = 1;
+    } else if (absoluteValue >= 10) {
+      decimals = 2;
+    } else if (absoluteValue < 1) {
+      decimals = 6;
+    }
+
+    return value
+      .toFixed(decimals)
+      .replace(/\.0+$/, "")
+      .replace(/(\.\d*?)0+$/, "$1");
+  }
+
   function updateShapeDimension(
     id: number,
     dimension: "width" | "height",
     rawValue: string,
   ) {
-    const value = Number(rawValue);
+    const enteredValue = Number(rawValue);
 
-    if (!Number.isFinite(value) || value < 1) return;
+    if (!Number.isFinite(enteredValue) || enteredValue <= 0) return;
+
+    const value = unitToPixels(enteredValue, dimensionUnit);
 
     setDrawnShapes((current) =>
       current.map((shape) => {
@@ -444,10 +501,10 @@ export default function Home() {
             >
               <input
                 type="number"
-                min="1"
-                step="1"
+                min="0"
+                step="any"
                 aria-label="Shape width"
-                value={Math.round(selectedDimensions.width)}
+                value={formatDimensionValue(selectedDimensions.width)}
                 onFocus={(event) => event.currentTarget.select()}
                 onChange={(event) =>
                   updateShapeDimension(
@@ -457,7 +514,22 @@ export default function Home() {
                   )
                 }
               />
-              <span>px</span>
+
+              <span className="dimension-unit">
+                <select
+                  aria-label="Dimension unit"
+                  value={dimensionUnit}
+                  onChange={(event) =>
+                    setDimensionUnit(event.target.value as LengthUnit)
+                  }
+                >
+                  {lengthUnits.map((unit) => (
+                    <option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </option>
+                  ))}
+                </select>
+              </span>
             </label>
 
             {selectedDrawnShape.shape !== "Square" &&
@@ -471,10 +543,10 @@ export default function Home() {
                 >
                   <input
                     type="number"
-                    min="1"
-                    step="1"
+                    min="0"
+                    step="any"
                     aria-label="Shape height"
-                    value={Math.round(selectedDimensions.height)}
+                    value={formatDimensionValue(selectedDimensions.height)}
                     onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) =>
                       updateShapeDimension(
@@ -484,7 +556,22 @@ export default function Home() {
                       )
                     }
                   />
-                  <span>px</span>
+
+                  <span className="dimension-unit">
+                    <select
+                      aria-label="Dimension unit"
+                      value={dimensionUnit}
+                      onChange={(event) =>
+                        setDimensionUnit(event.target.value as LengthUnit)
+                      }
+                    >
+                      {lengthUnits.map((unit) => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
                 </label>
               )}
 
