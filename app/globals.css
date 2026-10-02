@@ -129,6 +129,26 @@ line.canvas-shape.saved-shape {
   fill: #ffffff;
 }
 
+.diagram-overlay-force.is-selectable {
+  pointer-events: all;
+  cursor: grab;
+}
+
+.diagram-overlay-force.is-selectable:active {
+  cursor: grabbing;
+}
+
+.diagram-overlay-force .force-hit-target {
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+}
+
+.diagram-overlay-force.is-selected > line:not(.force-hit-target) {
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.18));
+}
+
 .diagram-overlay-force text {
   fill: #171717;
   stroke: none;
@@ -431,13 +451,72 @@ line.canvas-shape.saved-shape {
   letter-spacing: 0.11em;
 }
 
+.force-properties {
+  margin: 14px 4px 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(17, 17, 17, 0.025);
+  display: grid;
+  gap: 10px;
+}
+
+.force-properties-title {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+}
+
+.force-property-field {
+  display: grid;
+  gap: 5px;
+}
+
+.force-property-field > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.force-property-field input {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.force-property-field input:focus {
+  border-color: rgba(17, 17, 17, 0.42);
+}
+
+.force-property-number {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.force-property-number > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .tool-section {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--line);
 }
 
-.brand-row + .tool-section {
+.brand-row + .tool-section,
+.force-properties + .tool-section {
   margin-top: 20px;
   padding-top: 12px;
 }
