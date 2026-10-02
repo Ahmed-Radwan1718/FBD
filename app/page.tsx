@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import type {
+  PointerEvent as ReactPointerEvent,
+  WheelEvent as ReactWheelEvent,
+} from "react";
 
 type ViewMode = "2D" | "3D";
 type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
@@ -92,6 +95,8 @@ export default function Home() {
   const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const dragStateRef = useRef<DragState | null>(null);
 
   const selectedDrawnShape =
@@ -109,9 +114,32 @@ export default function Home() {
     const rect = event.currentTarget.getBoundingClientRect();
 
     return {
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: (event.clientX - rect.left - viewportOffset.x) / zoom,
+      y: (event.clientY - rect.top - viewportOffset.y) / zoom,
     };
+  }
+
+  function handleWheel(event: ReactWheelEvent<HTMLElement>) {
+    event.preventDefault();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
+
+    const zoomFactor = Math.exp(-event.deltaY * 0.0015);
+    const nextZoom = Math.min(8, Math.max(0.25, zoom * zoomFactor));
+
+    if (nextZoom === zoom) return;
+
+    const worldX = (cursorX - viewportOffset.x) / zoom;
+    const worldY = (cursorY - viewportOffset.y) / zoom;
+
+    setViewportOffset({
+      x: cursorX - worldX * nextZoom,
+      y: cursorY - worldY * nextZoom,
+    });
+
+    setZoom(nextZoom);
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
@@ -278,8 +306,8 @@ export default function Home() {
     const dragState = dragStateRef.current;
 
     if (dragState && dragState.pointerId === event.pointerId) {
-      const deltaX = event.clientX - dragState.lastClientX;
-      const deltaY = event.clientY - dragState.lastClientY;
+      const deltaX = (event.clientX - dragState.lastClientX) / zoom;
+      const deltaY = (event.clientY - dragState.lastClientY) / zoom;
 
       if (deltaX !== 0 || deltaY !== 0) {
         setDrawnShapes((current) =>
@@ -469,6 +497,7 @@ export default function Home() {
       <section
         className={`canvas ${selectedShape ? "has-active-tool" : ""}`}
         aria-label={`${mode} drawing canvas`}
+        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -477,9 +506,15 @@ export default function Home() {
           setDraftShape(null);
         }}
       >
-        <div className="canvas-grid" />
+        <div
+          className="canvas-viewport"
+          style={{
+            transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px) scale(${zoom})`,
+          }}
+        >
+          <div className="canvas-grid" />
 
-        <svg className="drawing-layer">
+          <svg className="drawing-layer">
           {drawnShapes.map((shape) => renderShape(shape, shape.id, true))}
           {draftShape && (
             <g className="draft-shape">
@@ -492,6 +527,7 @@ export default function Home() {
           <div
             className="shape-controls-layer"
             onPointerDown={(event) => event.stopPropagation()}
+            onWheel={(event) => event.stopPropagation()}
           >
             <label
               className="shape-dimension-control shape-dimension-width"
@@ -591,9 +627,10 @@ export default function Home() {
           </div>
         )}
 
-        <div className="canvas-origin" aria-hidden="true">
-          <span className="axis-x" />
-          <span className="axis-y" />
+          <div className="canvas-origin" aria-hidden="true">
+            <span className="axis-x" />
+            <span className="axis-y" />
+          </div>
         </div>
       </section>
 
