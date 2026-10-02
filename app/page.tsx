@@ -55,8 +55,16 @@ export default function Home() {
   const [mode, setMode] = useState<ViewMode>("2D");
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
+  const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+
+  const selectedDrawnShape =
+    drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
+
+  const selectedDimensions = selectedDrawnShape
+    ? getShapeDimensions(selectedDrawnShape)
+    : null;
 
   function getCanvasPoint(event: ReactPointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -68,7 +76,10 @@ export default function Home() {
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
-    if (!selectedShape) return;
+    if (!selectedShape) {
+      setSelectedShapeId(null);
+      return;
+    }
 
     const point = getCanvasPoint(event);
 
@@ -81,6 +92,84 @@ export default function Home() {
       endX: point.x,
       endY: point.y,
     });
+  }
+
+  function handleShapePointerDown(
+    event: ReactPointerEvent<SVGElement>,
+    id: number,
+  ) {
+    event.stopPropagation();
+    setSelectedShape(null);
+    setSelectedShapeId(id);
+  }
+
+  function getShapeDimensions(shape: DrawnShape) {
+    const width = Math.abs(shape.endX - shape.startX);
+    const height = Math.abs(shape.endY - shape.startY);
+
+    if (shape.shape === "Square" || shape.shape === "Circle") {
+      const size = Math.max(width, height);
+
+      return {
+        width: size,
+        height: size,
+      };
+    }
+
+    return {
+      width,
+      height,
+    };
+  }
+
+  function updateShapeDimension(
+    id: number,
+    dimension: "width" | "height",
+    rawValue: string,
+  ) {
+    const value = Number(rawValue);
+
+    if (!Number.isFinite(value) || value < 1) return;
+
+    setDrawnShapes((current) =>
+      current.map((shape) => {
+        if (shape.id !== id) return shape;
+
+        const dx = shape.endX - shape.startX;
+        const dy = shape.endY - shape.startY;
+        const xDirection = dx < 0 ? -1 : 1;
+        const yDirection = dy < 0 ? -1 : 1;
+
+        if (shape.shape === "Square" || shape.shape === "Circle") {
+          return {
+            ...shape,
+            endX: shape.startX + xDirection * value,
+            endY: shape.startY + yDirection * value,
+          };
+        }
+
+        return {
+          ...shape,
+          endX:
+            dimension === "width"
+              ? shape.startX + xDirection * value
+              : shape.endX,
+          endY:
+            dimension === "height"
+              ? shape.startY + yDirection * value
+              : shape.endY,
+        };
+      }),
+    );
+  }
+
+  function deleteSelectedShape() {
+    if (selectedShapeId === null) return;
+
+    setDrawnShapes((current) =>
+      current.filter((shape) => shape.id !== selectedShapeId),
+    );
+    setSelectedShapeId(null);
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
@@ -121,9 +210,22 @@ export default function Home() {
     setDraftShape(null);
   }
 
-  function renderShape(shape: DrawnShape | DraftShape, key: string | number) {
+  function renderShape(
+    shape: DrawnShape | DraftShape,
+    key: string | number,
+    selectable = false,
+  ) {
     const dx = shape.endX - shape.startX;
     const dy = shape.endY - shape.startY;
+    const isSelected = "id" in shape && selectedShapeId === shape.id;
+
+    const shapeClassName = [
+      "canvas-shape",
+      selectable ? "saved-shape" : "",
+      isSelected ? "is-selected" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     if (shape.shape === "Line") {
       return (
@@ -133,7 +235,12 @@ export default function Home() {
           y1={shape.startY}
           x2={shape.endX}
           y2={shape.endY}
-          className="canvas-shape"
+          className={shapeClassName}
+          onPointerDown={
+            selectable && "id" in shape
+              ? (event) => handleShapePointerDown(event, shape.id)
+              : undefined
+          }
         />
       );
     }
@@ -155,7 +262,12 @@ export default function Home() {
             cy={y + absoluteSize / 2}
             rx={absoluteSize / 2}
             ry={absoluteSize / 2}
-            className="canvas-shape"
+            className={shapeClassName}
+            onPointerDown={
+              selectable && "id" in shape
+                ? (event) => handleShapePointerDown(event, shape.id)
+                : undefined
+            }
           />
         );
       }
@@ -167,7 +279,12 @@ export default function Home() {
           y={y}
           width={absoluteSize}
           height={absoluteSize}
-          className="canvas-shape"
+          className={shapeClassName}
+          onPointerDown={
+            selectable && "id" in shape
+              ? (event) => handleShapePointerDown(event, shape.id)
+              : undefined
+          }
         />
       );
     }
@@ -185,7 +302,12 @@ export default function Home() {
           y={y}
           width={width}
           height={height}
-          className="canvas-shape"
+          className={shapeClassName}
+          onPointerDown={
+            selectable && "id" in shape
+              ? (event) => handleShapePointerDown(event, shape.id)
+              : undefined
+          }
         />
       );
     }
@@ -194,7 +316,12 @@ export default function Home() {
       <polygon
         key={key}
         points={`${x + width / 2},${y} ${x + width},${y + height} ${x},${y + height}`}
-        className="canvas-shape"
+        className={shapeClassName}
+        onPointerDown={
+          selectable && "id" in shape
+            ? (event) => handleShapePointerDown(event, shape.id)
+            : undefined
+        }
       />
     );
   }
@@ -211,8 +338,8 @@ export default function Home() {
       >
         <div className="canvas-grid" />
 
-        <svg className="drawing-layer" aria-hidden="true">
-          {drawnShapes.map((shape) => renderShape(shape, shape.id))}
+        <svg className="drawing-layer">
+          {drawnShapes.map((shape) => renderShape(shape, shape.id, true))}
           {draftShape && (
             <g className="draft-shape">
               {renderShape(draftShape, "draft")}
@@ -258,7 +385,10 @@ export default function Home() {
                     type="button"
                     key={shape}
                     aria-pressed={active}
-                    onClick={() => setSelectedShape(active ? null : shape)}
+                    onClick={() => {
+                      setSelectedShape(active ? null : shape);
+                      setSelectedShapeId(null);
+                    }}
                   >
                     <ShapeIcon shape={shape} />
                     <span>{shape}</span>
@@ -268,6 +398,94 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        {selectedDrawnShape && selectedDimensions && (
+          <div className="shape-inspector">
+            <div className="inspector-heading">
+              <span>Selected shape</span>
+              <strong>{selectedDrawnShape.shape}</strong>
+            </div>
+
+            {selectedDrawnShape.shape === "Square" ||
+            selectedDrawnShape.shape === "Circle" ? (
+              <label className="dimension-field">
+                <span>
+                  {selectedDrawnShape.shape === "Circle" ? "Diameter" : "Size"}
+                </span>
+                <div className="dimension-input">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={Math.round(selectedDimensions.width)}
+                    onChange={(event) =>
+                      updateShapeDimension(
+                        selectedDrawnShape.id,
+                        "width",
+                        event.target.value,
+                      )
+                    }
+                  />
+                  <span>px</span>
+                </div>
+              </label>
+            ) : (
+              <div className="dimension-grid">
+                <label className="dimension-field">
+                  <span>
+                    {selectedDrawnShape.shape === "Line" ? "X span" : "Width"}
+                  </span>
+                  <div className="dimension-input">
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={Math.round(selectedDimensions.width)}
+                      onChange={(event) =>
+                        updateShapeDimension(
+                          selectedDrawnShape.id,
+                          "width",
+                          event.target.value,
+                        )
+                      }
+                    />
+                    <span>px</span>
+                  </div>
+                </label>
+
+                <label className="dimension-field">
+                  <span>
+                    {selectedDrawnShape.shape === "Line" ? "Y span" : "Height"}
+                  </span>
+                  <div className="dimension-input">
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={Math.round(selectedDimensions.height)}
+                      onChange={(event) =>
+                        updateShapeDimension(
+                          selectedDrawnShape.id,
+                          "height",
+                          event.target.value,
+                        )
+                      }
+                    />
+                    <span>px</span>
+                  </div>
+                </label>
+              </div>
+            )}
+
+            <button
+              className="delete-shape-button"
+              type="button"
+              onClick={deleteSelectedShape}
+            >
+              Delete shape
+            </button>
+          </div>
+        )}
       </aside>
 
       <div className="mode-switch" aria-label="Canvas dimension">
