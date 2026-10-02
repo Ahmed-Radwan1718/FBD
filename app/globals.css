@@ -55,13 +55,6 @@ button {
   cursor: crosshair;
 }
 
-.canvas-viewport {
-  position: absolute;
-  inset: 0;
-  transform-origin: 0 0;
-  will-change: transform;
-}
-
 .drawing-layer {
   position: absolute;
   inset: 0;
@@ -114,17 +107,12 @@ line.canvas-shape.saved-shape {
 
 .canvas-grid {
   position: absolute;
-  inset: -300%;
+  inset: 0;
   background-image:
     linear-gradient(to right, var(--grid-small) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid-small) 1px, transparent 1px),
     linear-gradient(to right, var(--grid-large) 1px, transparent 1px),
     linear-gradient(to bottom, var(--grid-large) 1px, transparent 1px);
-  background-size:
-    20px 20px,
-    20px 20px,
-    100px 100px,
-    100px 100px;
 }
 
 .canvas-origin {
