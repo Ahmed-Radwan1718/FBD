@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A clean browser-based free-body diagram maker for engineering statics and mechanics." />
+  <meta name="theme-color" content="#f7f4ee" />
+  <title>FBD Maker</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header-wrap">
+    <div class="site-header">
+      <a class="brand" href="#top" aria-label="FBD Maker home">FBD</a>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <a href="#builder">Builder</a>
+        <a href="#guide">Guide</a>
+        <a href="https://github.com/Ahmed-Radwan1718/FBD" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top" class="page-shell">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="kicker">Engineering diagram tool</p>
+        <h1 id="page-title">Build clean free-body diagrams.</h1>
+        <p class="hero-lede">
+          A focused 2D workspace for statics and mechanics. Add supports, loads, moments, and distributed loads, then export a presentation-ready diagram.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#builder">Open builder</a>
+          <button class="button button-ghost" id="loadExampleHero" type="button">Load example</button>
+        </div>
+      </div>
+
+      <aside class="hero-card" aria-label="Current capabilities">
+        <span class="eyebrow">Version 0.1</span>
+        <h2>Diagram first. Solver later.</h2>
+        <p>
+          This first release keeps the mechanics transparent: you control the geometry and forces, while the app handles clean SVG rendering and export.
+        </p>
+        <div class="hero-card-grid">
+          <div><strong>5</strong><span>Element types</span></div>
+          <div><strong>2</strong><span>Export formats</span></div>
+          <div><strong>0</strong><span>Dependencies</span></div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="builder" class="builder-section" aria-labelledby="builder-title">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Workspace</p>
+          <h2 id="builder-title">Free-body diagram builder</h2>
+        </div>
+        <p>Positions are measured from the left end of the member. Angles are measured counterclockwise from +x.</p>
+      </div>
+
+      <div class="app-shell">
+        <aside class="control-panel" aria-label="Diagram controls">
+          <div class="panel-topline">
+            <div>
+              <span class="eyebrow">Setup</span>
+              <h3>Member</h3>
+            </div>
+            <button class="icon-button" id="resetButton" type="button" title="Clear diagram" aria-label="Clear diagram">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5m4-5v5"/></svg>
+            </button>
+          </div>
+
+          <label class="field">
+            <span>Member length</span>
+            <div class="input-with-unit">
+              <input id="beamLength" type="number" min="0.1" max="1000" step="0.1" value="6" inputmode="decimal" />
+              <span class="unit">m</span>
+            </div>
+          </label>
+
+          <div class="toggle-row">
+            <label class="switch-label">
+              <input id="showReactions" type="checkbox" checked />
+              <span class="switch" aria-hidden="true"></span>
+              <span>Symbolic reactions</span>
+            </label>
+            <label class="switch-label">
+              <input id="showDimensions" type="checkbox" checked />
+              <span class="switch" aria-hidden="true"></span>
+              <span>Dimensions</span>
+            </label>
+          </div>
+
+          <div class="control-divider"></div>
+
+          <div class="tool-tabs" role="tablist" aria-label="Element types">
+            <button class="tool-tab is-active" type="button" role="tab" aria-selected="true" data-tab="support">Support</button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" data-tab="force">Force</button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" data-tab="moment">Moment</button>
+            <button class="tool-tab" type="button" role="tab" aria-selected="false" data-tab="udl">UDL</button>
+          </div>
+
+          <div class="tool-pane is-active" data-pane="support">
+            <div class="segmented" role="group" aria-label="Support type">
+              <button class="segment is-active" type="button" data-support="pin">Pin</button>
+              <button class="segment" type="button" data-support="roller">Roller</button>
+              <button class="segment" type="button" data-support="fixed">Fixed</button>
+            </div>
+            <label class="field">
+              <span>Position</span>
+              <div class="input-with-unit">
+                <input id="supportPosition" type="number" min="0" step="0.1" value="0" inputmode="decimal" />
+                <span class="unit">m</span>
+              </div>
+            </label>
+            <button class="button button-primary button-full" id="addSupport" type="button">Add support</button>
+          </div>
+
+          <div class="tool-pane" data-pane="force" hidden>
+            <div class="two-col">
+              <label class="field">
+                <span>Magnitude</span>
+                <div class="input-with-unit">
+                  <input id="forceMagnitude" type="number" min="0" step="0.1" value="10" inputmode="decimal" />
+                  <span class="unit">kN</span>
+                </div>
+              </label>
+              <label class="field">
+                <span>Position</span>
+                <div class="input-with-unit">
+                  <input id="forcePosition" type="number" min="0" step="0.1" value="2" inputmode="decimal" />
+                  <span class="unit">m</span>
+                </div>
+              </label>
+            </div>
+            <label class="field">
+              <span>Angle</span>
+              <div class="input-with-unit">
+                <input id="forceAngle" type="number" step="1" value="-90" inputmode="decimal" />
+                <span class="unit">°</span>
+              </div>
+              <small>Use −90° for downward and 90° for upward.</small>
+            </label>
+            <button class="button button-primary button-full" id="addForce" type="button">Add point force</button>
+          </div>
+
+          <div class="tool-pane" data-pane="moment" hidden>
+            <div class="two-col">
+              <label class="field">
+                <span>Magnitude</span>
+                <div class="input-with-unit">
+                  <input id="momentMagnitude" type="number" min="0" step="0.1" value="5" inputmode="decimal" />
+                  <span class="unit">kN·m</span>
+                </div>
+              </label>
+              <label class="field">
+                <span>Position</span>
+                <div class="input-with-unit">
+                  <input id="momentPosition" type="number" min="0" step="0.1" value="3" inputmode="decimal" />
+                  <span class="unit">m</span>
+                </div>
+              </label>
+            </div>
+            <div class="segmented" role="group" aria-label="Moment direction">
+              <button class="segment is-active" type="button" data-moment-direction="cw">Clockwise</button>
+              <button class="segment" type="button" data-moment-direction="ccw">Counterclockwise</button>
+            </div>
+            <button class="button button-primary button-full" id="addMoment" type="button">Add moment</button>
+          </div>
+
+          <div class="tool-pane" data-pane="udl" hidden>
+            <label class="field">
+              <span>Intensity</span>
+              <div class="input-with-unit">
+                <input id="udlMagnitude" type="number" min="0" step="0.1" value="3" inputmode="decimal" />
+                <span class="unit">kN/m</span>
+              </div>
+            </label>
+            <div class="two-col">
+              <label class="field">
+                <span>Start</span>
+                <div class="input-with-unit">
+                  <input id="udlStart" type="number" min="0" step="0.1" value="3" inputmode="decimal" />
+                  <span class="unit">m</span>
+                </div>
+              </label>
+              <label class="field">
+                <span>End</span>
+                <div class="input-with-unit">
+                  <input id="udlEnd" type="number" min="0" step="0.1" value="6" inputmode="decimal" />
+                  <span class="unit">m</span>
+                </div>
+              </label>
+            </div>
+            <div class="segmented" role="group" aria-label="Distributed load direction">
+              <button class="segment is-active" type="button" data-udl-direction="down">Down</button>
+              <button class="segment" type="button" data-udl-direction="up">Up</button>
+            </div>
+            <button class="button button-primary button-full" id="addUdl" type="button">Add distributed load</button>
+          </div>
+
+          <div class="control-divider"></div>
+
+          <div class="object-head">
+            <div>
+              <span class="eyebrow">Diagram</span>
+              <h3>Elements</h3>
+            </div>
+            <span id="elementCount" class="count-badge">0</span>
+          </div>
+          <div id="objectList" class="object-list" aria-live="polite"></div>
+        </aside>
+
+        <section class="canvas-panel" aria-label="Diagram canvas">
+          <div class="canvas-toolbar">
+            <div class="history-controls" aria-label="History controls">
+              <button id="undoButton" class="toolbar-button" type="button" title="Undo" aria-label="Undo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5M5 12h8a6 6 0 1 1 0 12"/></svg>
+                <span>Undo</span>
+              </button>
+              <button id="redoButton" class="toolbar-button" type="button" title="Redo" aria-label="Redo">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 7 5 5-5 5m4-5h-8a6 6 0 1 0 0 12"/></svg>
+                <span>Redo</span>
+              </button>
+            </div>
+
+            <div class="export-controls">
+              <button id="loadExample" class="toolbar-button" type="button">Example</button>
+              <button id="exportSvg" class="toolbar-button" type="button">SVG</button>
+              <button id="exportPng" class="toolbar-button toolbar-button-dark" type="button">Export PNG</button>
+            </div>
+          </div>
+
+          <div class="canvas-wrap">
+            <svg id="fbdCanvas" class="fbd-canvas" viewBox="0 0 1100 620" role="img" aria-labelledby="canvasTitle canvasDescription">
+              <title id="canvasTitle">Free-body diagram</title>
+              <desc id="canvasDescription">Interactive free-body diagram of a horizontal member with user-defined loads and supports.</desc>
+            </svg>
+          </div>
+
+          <div class="canvas-footer">
+            <div class="legend">
+              <span><i class="legend-swatch load"></i>Applied loads</span>
+              <span><i class="legend-swatch reaction"></i>Reactions</span>
+            </div>
+            <p id="statusText">Drag point elements horizontally on the canvas to reposition them.</p>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="guide" class="guide-section" aria-labelledby="guide-title">
+      <div class="section-head">
+        <div>
+          <p class="kicker">Quick guide</p>
+          <h2 id="guide-title">Made for statics workflow.</h2>
+        </div>
+        <p>The tool deliberately uses the same information you normally identify before writing equilibrium equations.</p>
+      </div>
+
+      <div class="guide-grid">
+        <article class="guide-card">
+          <span>01</span>
+          <h3>Set the member</h3>
+          <p>Enter the beam or bar length. Every position is measured from the left end.</p>
+        </article>
+        <article class="guide-card">
+          <span>02</span>
+          <h3>Add supports & loads</h3>
+          <p>Build the diagram from supports, point forces, couples, and uniformly distributed loads.</p>
+        </article>
+        <article class="guide-card">
+          <span>03</span>
+          <h3>Export cleanly</h3>
+          <p>Download the vector SVG for notes and reports, or a high-resolution PNG for quick use.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>FBD Maker</strong>
+      <span>Built for mechanics, one force at a time.</span>
+    </div>
+    <a href="https://github.com/Ahmed-Radwan1718/FBD" target="_blank" rel="noreferrer">Ahmed-Radwan1718/FBD ↗</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
