@@ -109,6 +109,48 @@ line.canvas-shape.saved-shape {
   fill: none;
 }
 
+.shape-measurements-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.shape-measurement-group {
+  display: contents;
+}
+
+.shape-measurement {
+  position: absolute;
+  min-width: max-content;
+  padding: 3px 7px;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+  border-radius: 5px;
+  background: rgba(246, 245, 241, 0.94);
+  color: #55534f;
+  box-shadow: 0 1px 3px rgba(17, 17, 17, 0.06);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.shape-measurement.is-selected {
+  border-color: rgba(17, 17, 17, 0.24);
+  color: #171717;
+}
+
+.shape-measurement-horizontal,
+.shape-measurement-line {
+  transform: translateX(-50%);
+}
+
+.shape-measurement-vertical {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
 .canvas-grid {
   position: absolute;
   inset: 0;

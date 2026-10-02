@@ -59,6 +59,20 @@ const metersPerUnit: Record<LengthUnit, number> = {
   ft: 0.3048,
 };
 
+const lengthUnitNames: Record<
+  LengthUnit,
+  { singular: string; plural: string }
+> = {
+  km: { singular: "kilometer", plural: "kilometers" },
+  m: { singular: "meter", plural: "meters" },
+  cm: { singular: "centimeter", plural: "centimeters" },
+  mm: { singular: "millimeter", plural: "millimeters" },
+  µm: { singular: "micrometer", plural: "micrometers" },
+  nm: { singular: "nanometer", plural: "nanometers" },
+  in: { singular: "inch", plural: "inches" },
+  ft: { singular: "foot", plural: "feet" },
+};
+
 const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -274,6 +288,79 @@ export default function Home() {
       .toFixed(decimals)
       .replace(/\.0+$/, "")
       .replace(/(\.\d*?)0+$/, "$1");
+  }
+
+  function formatDimensionLabel(pixels: number) {
+    const value = pixelsToUnit(pixels, dimensionUnit);
+    const names = lengthUnitNames[dimensionUnit];
+    const unitName = Math.abs(value - 1) < 0.000001 ? names.singular : names.plural;
+
+    return `${formatDimensionValue(pixels)} ⋅ ${unitName}`;
+  }
+
+  function renderShapeMeasurements(shape: DrawnShape) {
+    if (shape.shape === "Line") {
+      const deltaX = shape.endX - shape.startX;
+      const deltaY = shape.endY - shape.startY;
+      const length = Math.hypot(deltaX, deltaY);
+
+      return (
+        <span
+          key={`measurements-${shape.id}`}
+          className={`shape-measurement shape-measurement-line ${
+            selectedShapeId === shape.id ? "is-selected" : ""
+          }`}
+          style={{
+            left:
+              ((shape.startX + shape.endX) / 2) * zoom +
+              viewportOffset.x,
+            top:
+              ((shape.startY + shape.endY) / 2) * zoom +
+              viewportOffset.y +
+              12,
+          }}
+        >
+          {formatDimensionLabel(length)}
+        </span>
+      );
+    }
+
+    const bounds = getShapeBounds(shape);
+
+    return (
+      <div key={`measurements-${shape.id}`} className="shape-measurement-group">
+        <span
+          className={`shape-measurement shape-measurement-horizontal ${
+            selectedShapeId === shape.id ? "is-selected" : ""
+          }`}
+          style={{
+            left:
+              (bounds.x + bounds.width / 2) * zoom +
+              viewportOffset.x,
+            top:
+              (bounds.y + bounds.height) * zoom +
+              viewportOffset.y +
+              10,
+          }}
+        >
+          {formatDimensionLabel(bounds.width)}
+        </span>
+
+        <span
+          className={`shape-measurement shape-measurement-vertical ${
+            selectedShapeId === shape.id ? "is-selected" : ""
+          }`}
+          style={{
+            left: bounds.x * zoom + viewportOffset.x - 10,
+            top:
+              (bounds.y + bounds.height / 2) * zoom +
+              viewportOffset.y,
+          }}
+        >
+          {formatDimensionLabel(bounds.height)}
+        </span>
+      </div>
+    );
   }
 
   function updateShapeDimension(
@@ -593,6 +680,12 @@ export default function Home() {
             )}
           </g>
         </svg>
+
+        {mode === "2D" && drawnShapes.length > 0 && (
+          <div className="shape-measurements-layer" aria-hidden="true">
+            {drawnShapes.map(renderShapeMeasurements)}
+          </div>
+        )}
 
         {selectedDrawnShape &&
           selectedDimensions &&
