@@ -1498,6 +1498,9 @@ export default function Home() {
       .join(" ");
 
     if (item.category === "force") {
+      const midpointX = (item.startX + item.endX) / 2;
+      const midpointY = (item.startY + item.endY) / 2;
+
       return (
         <g
           key={key}
@@ -1522,12 +1525,72 @@ export default function Home() {
             y2={item.endY}
             markerEnd="url(#force-arrowhead)"
           />
-          <text
-            x={(item.startX + item.endX) / 2 + 8}
-            y={(item.startY + item.endY) / 2 - 8}
-          >
-            {item.name} = {item.magnitude} N
-          </text>
+
+          {isSelectedForce && "id" in item && (
+            <foreignObject
+              className="force-inline-editor-object"
+              x={midpointX - 132}
+              y={midpointY - 78}
+              width={264}
+              height={68}
+            >
+              <div
+                className="force-inline-editor"
+                onPointerDown={(event) => event.stopPropagation()}
+              >
+                <label className="force-property-field">
+                  <span>Name</span>
+                  <input
+                    type="text"
+                    value={item.name}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateForceName(item.id, event.currentTarget.value)
+                    }
+                  />
+                </label>
+
+                <label className="force-property-field">
+                  <span>Magnitude</span>
+                  <div className="force-property-number">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.magnitude}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        updateForceMagnitude(item.id, event.currentTarget.value)
+                      }
+                    />
+                    <span>N</span>
+                  </div>
+                </label>
+
+                <label className="force-property-field">
+                  <span>Angle</span>
+                  <div className="force-property-number">
+                    <input
+                      type="number"
+                      step="any"
+                      value={Number(getForceAngle(item).toFixed(1))}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        updateForceAngle(item.id, event.currentTarget.value)
+                      }
+                    />
+                    <span>°</span>
+                  </div>
+                </label>
+              </div>
+            </foreignObject>
+          )}
+
+          {!isSelectedForce && (
+            <text x={midpointX + 8} y={midpointY - 8}>
+              {item.name} = {item.magnitude} N
+            </text>
+          )}
         </g>
       );
     }
@@ -1844,70 +1907,7 @@ export default function Home() {
           <span className="brand-name">Settings</span>
         </div>
 
-        {selectedForceItem && (
-          <div
-            className="force-properties"
-            onPointerDown={(event) => event.stopPropagation()}
-          >
-            <div className="force-properties-title">Force properties</div>
-
-            <label className="force-property-field">
-              <span>Name</span>
-              <input
-                type="text"
-                value={selectedForceItem.name}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) =>
-                  updateForceName(
-                    selectedForceItem.id,
-                    event.currentTarget.value,
-                  )
-                }
-              />
-            </label>
-
-            <label className="force-property-field">
-              <span>Magnitude</span>
-              <div className="force-property-number">
-                <input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={selectedForceItem.magnitude}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) =>
-                    updateForceMagnitude(
-                      selectedForceItem.id,
-                      event.currentTarget.value,
-                    )
-                  }
-                />
-                <span>N</span>
-              </div>
-            </label>
-
-            <label className="force-property-field">
-              <span>Angle from +x</span>
-              <div className="force-property-number">
-                <input
-                  type="number"
-                  step="any"
-                  value={Number(
-                    getForceAngle(selectedForceItem).toFixed(1),
-                  )}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) =>
-                    updateForceAngle(
-                      selectedForceItem.id,
-                      event.currentTarget.value,
-                    )
-                  }
-                />
-                <span>°</span>
-              </div>
-            </label>
-          </div>
-        )}
+        {/* Force properties are edited directly above the selected force. */}
 
         <div className="tool-section">
           <button
