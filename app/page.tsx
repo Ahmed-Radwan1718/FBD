@@ -1620,10 +1620,6 @@ export default function Home() {
           </div>
         )}
 
-        <div className="canvas-origin" aria-hidden="true">
-          <span className="axis-x" />
-          <span className="axis-y" />
-        </div>
       </section>
 
       <aside className="sidebar" aria-label="Drawing tools">
