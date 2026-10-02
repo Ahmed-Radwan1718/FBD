@@ -45,10 +45,14 @@ button {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  cursor: default;
+  cursor: grab;
   background: var(--canvas);
   touch-action: none;
   user-select: none;
+}
+
+.canvas:not(.has-active-tool):active {
+  cursor: grabbing;
 }
 
 .canvas.has-active-tool {
