@@ -74,7 +74,11 @@ button {
 
 .canvas-shape.saved-shape {
   pointer-events: all;
-  cursor: pointer;
+  cursor: grab;
+}
+
+.canvas-shape.saved-shape:active {
+  cursor: grabbing;
 }
 
 .canvas-shape.is-selected {
