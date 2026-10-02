@@ -883,9 +883,7 @@ export default function Home() {
               }}
             />
 
-            <span className="shape-measurement-separator" aria-hidden="true">
-              ·
-            </span>
+            <span className="shape-measurement-separator" aria-hidden="true" />
 
             <select
               aria-label="Dimension unit"
@@ -897,7 +895,7 @@ export default function Home() {
             >
               {lengthUnits.map((unit) => (
                 <option key={unit.value} value={unit.value}>
-                  {unit.label}
+                  {unit.value}
                 </option>
               ))}
             </select>
