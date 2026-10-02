@@ -66,10 +66,20 @@ button {
 }
 
 .canvas-shape {
-  fill: rgba(255, 255, 255, 0.2);
+  fill: #ffffff;
   stroke: #171717;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+
+.canvas-shape.saved-shape {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.canvas-shape.is-selected {
+  stroke-width: 3;
+  filter: drop-shadow(0 2px 4px rgba(17, 17, 17, 0.16));
 }
 
 line.canvas-shape {
@@ -77,9 +87,18 @@ line.canvas-shape {
   stroke-linecap: round;
 }
 
+line.canvas-shape.saved-shape {
+  pointer-events: stroke;
+}
+
 .draft-shape .canvas-shape {
+  fill: rgba(255, 255, 255, 0.72);
   stroke-dasharray: 6 5;
-  opacity: 0.65;
+  opacity: 0.72;
+}
+
+.draft-shape line.canvas-shape {
+  fill: none;
 }
 
 .canvas-grid {
@@ -136,6 +155,7 @@ line.canvas-shape {
   left: 14px;
   width: 244px;
   padding: 18px 12px 14px;
+  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--panel);
@@ -277,6 +297,104 @@ line.canvas-shape {
 .shape-button span {
   font-size: 12px;
   font-weight: 650;
+}
+
+.shape-inspector {
+  margin-top: 14px;
+  padding: 14px 10px 10px;
+  border-top: 1px solid var(--line);
+}
+
+.inspector-heading {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inspector-heading span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+.inspector-heading strong {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.dimension-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dimension-field {
+  display: grid;
+  gap: 6px;
+}
+
+.dimension-field > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.dimension-input {
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.72);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dimension-input:focus-within {
+  border-color: rgba(17, 17, 17, 0.32);
+}
+
+.dimension-input input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dimension-input span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.delete-shape-button {
+  width: 100%;
+  height: 36px;
+  margin-top: 12px;
+  border: 1px solid rgba(130, 32, 32, 0.18);
+  border-radius: 9px;
+  background: rgba(130, 32, 32, 0.055);
+  color: #8a2929;
+  font-size: 11px;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    background 130ms ease,
+    border-color 130ms ease;
+}
+
+.delete-shape-button:hover {
+  border-color: rgba(130, 32, 32, 0.28);
+  background: rgba(130, 32, 32, 0.09);
 }
 
 .mode-switch {
