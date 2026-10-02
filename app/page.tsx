@@ -1680,7 +1680,7 @@ export default function Home() {
             <span />
             <span />
           </div>
-          <span className="brand-name">FBD</span>
+          <span className="brand-name">Settings</span>
         </div>
 
         <div className="tool-section">
