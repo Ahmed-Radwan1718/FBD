@@ -969,8 +969,13 @@ export default function Home() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Delete" && event.key !== "Backspace") return;
-      if (selectedShapeId === null) return;
+      const isDeleteKey =
+        event.key === "Delete" ||
+        event.key === "Backspace" ||
+        event.code === "Delete" ||
+        event.code === "Backspace";
+
+      if (!isDeleteKey || selectedShapeId === null) return;
 
       const target = event.target as HTMLElement | null;
 
@@ -984,6 +989,7 @@ export default function Home() {
       }
 
       event.preventDefault();
+      event.stopPropagation();
 
       const nextShapes = drawnShapes.filter(
         (shape) => shape.id !== selectedShapeId,
@@ -1004,10 +1010,10 @@ export default function Home() {
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [drawnShapes, scaleMode, selectedShapeId]);
 
