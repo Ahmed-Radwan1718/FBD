@@ -449,9 +449,12 @@ line.canvas-shape.saved-shape {
 }
 
 .scale-switch {
-  top: 64px;
+  top: 16px;
+  left: auto;
+  right: 16px;
   width: 176px;
   height: 36px;
+  transform: none;
 }
 
 .mode-switch button,
