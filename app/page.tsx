@@ -45,6 +45,8 @@ type ForceItem = OverlayGeometry & {
   id: number;
   category: "force";
   kind: ForceTool;
+  name: string;
+  magnitude: number;
 };
 
 type SupportItem = OverlayGeometry & {
@@ -68,6 +70,7 @@ type DraftOverlay =
 
 type DragState = {
   id: number;
+  target: "shape" | "force";
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
@@ -284,6 +287,7 @@ export default function Home() {
     useState<ConnectionTool | null>(null);
 
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
+  const [selectedForceId, setSelectedForceId] = useState<number | null>(null);
   const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
   const [activeMeasurement, setActiveMeasurement] = useState<string | null>(
     null,
@@ -312,6 +316,12 @@ export default function Home() {
 
   const selectedDrawnShape =
     drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
+
+  const selectedForceItem =
+    (overlayItems.find(
+      (item) =>
+        item.category === "force" && item.id === selectedForceId,
+    ) as ForceItem | undefined) ?? null;
 
   const selectedDisplayShape = selectedDrawnShape
     ? getDisplayShape(selectedDrawnShape)
@@ -372,6 +382,7 @@ export default function Home() {
     clearDrawingTools();
     setSelectedShape(nextShape);
     setSelectedShapeId(null);
+    setSelectedForceId(null);
   }
 
   function toggleForceTool(tool: ForceTool) {
@@ -380,6 +391,7 @@ export default function Home() {
     clearDrawingTools();
     setSelectedForceTool(nextTool);
     setSelectedShapeId(null);
+    setSelectedForceId(null);
   }
 
   function toggleSupportTool(tool: SupportTool) {
@@ -388,6 +400,7 @@ export default function Home() {
     clearDrawingTools();
     setSelectedSupportTool(nextTool);
     setSelectedShapeId(null);
+    setSelectedForceId(null);
   }
 
   function toggleConnectionTool(tool: ConnectionTool) {
@@ -396,6 +409,7 @@ export default function Home() {
     clearDrawingTools();
     setSelectedConnectionTool(nextTool);
     setSelectedShapeId(null);
+    setSelectedForceId(null);
   }
 
   function handleWheel(event: ReactWheelEvent<HTMLElement>) {
@@ -427,6 +441,7 @@ export default function Home() {
 
     if (!hasActiveDrawingTool) {
       setSelectedShapeId(null);
+      setSelectedForceId(null);
       event.currentTarget.setPointerCapture(event.pointerId);
 
       panStateRef.current = {
@@ -458,6 +473,8 @@ export default function Home() {
       setDraftOverlay({
         category: "force",
         kind: selectedForceTool,
+        name: forceLabels[selectedForceTool],
+        magnitude: 100,
         startX: point.x,
         startY: point.y,
         endX: point.x,
@@ -500,10 +517,32 @@ export default function Home() {
     event.currentTarget.setPointerCapture(event.pointerId);
 
     clearDrawingTools();
+    setSelectedForceId(null);
     setSelectedShapeId(id);
 
     dragStateRef.current = {
       id,
+      target: "shape",
+      pointerId: event.pointerId,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+    };
+  }
+
+  function handleForcePointerDown(
+    event: ReactPointerEvent<SVGElement>,
+    id: number,
+  ) {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    clearDrawingTools();
+    setSelectedShapeId(null);
+    setSelectedForceId(id);
+
+    dragStateRef.current = {
+      id,
+      target: "force",
       pointerId: event.pointerId,
       lastClientX: event.clientX,
       lastClientY: event.clientY,
@@ -785,6 +824,7 @@ export default function Home() {
         onPointerDown={(event) => {
           event.stopPropagation();
           clearDrawingTools();
+          setSelectedForceId(null);
           setSelectedShapeId(shape.id);
         }}
         onWheel={(event) => event.stopPropagation()}
@@ -975,7 +1015,12 @@ export default function Home() {
         event.code === "Delete" ||
         event.code === "Backspace";
 
-      if (!isDeleteKey || selectedShapeId === null) return;
+      if (
+        !isDeleteKey ||
+        (selectedShapeId === null && selectedForceId === null)
+      ) {
+        return;
+      }
 
       const target = event.target as HTMLElement | null;
 
@@ -990,6 +1035,16 @@ export default function Home() {
 
       event.preventDefault();
       event.stopPropagation();
+
+      if (selectedForceId !== null) {
+        setOverlayItems((current) =>
+          current.filter((item) => item.id !== selectedForceId),
+        );
+        setSelectedForceId(null);
+        return;
+      }
+
+      if (selectedShapeId === null) return;
 
       const nextShapes = drawnShapes.filter(
         (shape) => shape.id !== selectedShapeId,
@@ -1015,7 +1070,12 @@ export default function Home() {
     return () => {
       document.removeEventListener("keydown", handleKeyDown, true);
     };
-  }, [drawnShapes, scaleMode, selectedShapeId]);
+  }, [
+    drawnShapes,
+    scaleMode,
+    selectedForceId,
+    selectedShapeId,
+  ]);
 
   function getOverlayBounds(item: OverlayItem) {
     if (
@@ -1166,6 +1226,68 @@ export default function Home() {
     return points.join(" ");
   }
 
+  function getForceAngle(force: OverlayGeometry) {
+    const deltaX = force.endX - force.startX;
+    const deltaY = force.endY - force.startY;
+    const degrees = Math.atan2(-deltaY, deltaX) * (180 / Math.PI);
+
+    return (degrees + 360) % 360;
+  }
+
+  function updateForceName(id: number, name: string) {
+    setOverlayItems((current) =>
+      current.map((item) =>
+        item.category === "force" && item.id === id
+          ? { ...item, name }
+          : item,
+      ),
+    );
+  }
+
+  function updateForceMagnitude(id: number, rawValue: string) {
+    const magnitude = Number(rawValue);
+
+    if (!Number.isFinite(magnitude) || magnitude < 0) return;
+
+    setOverlayItems((current) =>
+      current.map((item) =>
+        item.category === "force" && item.id === id
+          ? { ...item, magnitude }
+          : item,
+      ),
+    );
+  }
+
+  function updateForceAngle(id: number, rawValue: string) {
+    const enteredAngle = Number(rawValue);
+
+    if (!Number.isFinite(enteredAngle)) return;
+
+    const normalizedAngle =
+      ((enteredAngle % 360) + 360) % 360;
+    const radians = normalizedAngle * (Math.PI / 180);
+
+    setOverlayItems((current) =>
+      current.map((item) => {
+        if (item.category !== "force" || item.id !== id) return item;
+
+        const length = Math.max(
+          1,
+          Math.hypot(
+            item.endX - item.startX,
+            item.endY - item.startY,
+          ),
+        );
+
+        return {
+          ...item,
+          endX: item.startX + Math.cos(radians) * length,
+          endY: item.startY - Math.sin(radians) * length,
+        };
+      }),
+    );
+  }
+
   function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
     const dragState = dragStateRef.current;
 
@@ -1174,19 +1296,35 @@ export default function Home() {
       const deltaY = (event.clientY - dragState.lastClientY) / zoom;
 
       if (deltaX !== 0 || deltaY !== 0) {
-        setDrawnShapes((current) =>
-          current.map((shape) =>
-            shape.id === dragState.id
-              ? {
-                  ...shape,
-                  startX: shape.startX + deltaX,
-                  startY: shape.startY + deltaY,
-                  endX: shape.endX + deltaX,
-                  endY: shape.endY + deltaY,
-                }
-              : shape,
-          ),
-        );
+        if (dragState.target === "shape") {
+          setDrawnShapes((current) =>
+            current.map((shape) =>
+              shape.id === dragState.id
+                ? {
+                    ...shape,
+                    startX: shape.startX + deltaX,
+                    startY: shape.startY + deltaY,
+                    endX: shape.endX + deltaX,
+                    endY: shape.endY + deltaY,
+                  }
+                : shape,
+            ),
+          );
+        } else {
+          setOverlayItems((current) =>
+            current.map((item) =>
+              item.category === "force" && item.id === dragState.id
+                ? {
+                    ...item,
+                    startX: item.startX + deltaX,
+                    startY: item.startY + deltaY,
+                    endX: item.endX + deltaX,
+                    endY: item.endY + deltaY,
+                  }
+                : item,
+            ),
+          );
+        }
 
         dragStateRef.current = {
           ...dragState,
@@ -1340,12 +1478,22 @@ export default function Home() {
     key: string | number,
     draft = false,
   ) {
+    const isSelectedForce =
+      !draft &&
+      "id" in item &&
+      item.category === "force" &&
+      selectedForceId === item.id;
+
     const className = [
       "diagram-overlay",
       `diagram-overlay-${item.category}`,
       item.category === "connection" && item.kind === "Cable"
         ? "connection-cable"
         : "",
+      !draft && item.category === "force" && "id" in item
+        ? "is-selectable"
+        : "",
+      isSelectedForce ? "is-selected" : "",
       draft ? "is-draft" : "",
     ]
       .filter(Boolean)
@@ -1353,7 +1501,22 @@ export default function Home() {
 
     if (item.category === "force") {
       return (
-        <g key={key} className={className}>
+        <g
+          key={key}
+          className={className}
+          onPointerDown={
+            !draft && "id" in item
+              ? (event) => handleForcePointerDown(event, item.id)
+              : undefined
+          }
+        >
+          <line
+            className="force-hit-target"
+            x1={item.startX}
+            y1={item.startY}
+            x2={item.endX}
+            y2={item.endY}
+          />
           <line
             x1={item.startX}
             y1={item.startY}
@@ -1365,7 +1528,7 @@ export default function Home() {
             x={(item.startX + item.endX) / 2 + 8}
             y={(item.startY + item.endY) / 2 - 8}
           >
-            {forceLabels[item.kind]}
+            {item.name} = {item.magnitude} N
           </text>
         </g>
       );
@@ -1682,6 +1845,71 @@ export default function Home() {
           </div>
           <span className="brand-name">Settings</span>
         </div>
+
+        {selectedForceItem && (
+          <div
+            className="force-properties"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <div className="force-properties-title">Force properties</div>
+
+            <label className="force-property-field">
+              <span>Name</span>
+              <input
+                type="text"
+                value={selectedForceItem.name}
+                onFocus={(event) => event.currentTarget.select()}
+                onChange={(event) =>
+                  updateForceName(
+                    selectedForceItem.id,
+                    event.currentTarget.value,
+                  )
+                }
+              />
+            </label>
+
+            <label className="force-property-field">
+              <span>Magnitude</span>
+              <div className="force-property-number">
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={selectedForceItem.magnitude}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) =>
+                    updateForceMagnitude(
+                      selectedForceItem.id,
+                      event.currentTarget.value,
+                    )
+                  }
+                />
+                <span>N</span>
+              </div>
+            </label>
+
+            <label className="force-property-field">
+              <span>Angle from +x</span>
+              <div className="force-property-number">
+                <input
+                  type="number"
+                  step="any"
+                  value={Number(
+                    getForceAngle(selectedForceItem).toFixed(1),
+                  )}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) =>
+                    updateForceAngle(
+                      selectedForceItem.id,
+                      event.currentTarget.value,
+                    )
+                  }
+                />
+                <span>°</span>
+              </div>
+            </label>
+          </div>
+        )}
 
         <div className="tool-section">
           <button
