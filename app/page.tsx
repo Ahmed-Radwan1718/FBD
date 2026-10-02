@@ -59,7 +59,7 @@ const metersPerUnit: Record<LengthUnit, number> = {
   ft: 0.3048,
 };
 
-const shapes: Shape[] = ["Square", "Rectangle", "Circle", "Triangle", "Line"];
+const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
