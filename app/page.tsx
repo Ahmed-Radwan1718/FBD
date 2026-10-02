@@ -10,6 +10,11 @@ import type {
 type ViewMode = "2D" | "3D";
 type ScaleMode = "schematic" | "to-scale";
 type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
+type ForceTool = "Applied Force" | "Weight" | "Normal" | "Friction" | "Tension";
+type SupportTool = "Pin Support" | "Roller Support" | "Fixed Support";
+type ConnectionTool = "Hinge" | "Cable" | "Spring";
+type CanvasControl = "Grid" | "Snap to grid" | "Fit all" | "Reset view";
+type SidebarTool = ForceTool | SupportTool | ConnectionTool | CanvasControl;
 
 type ShapeMeasurements = {
   widthMeters: number;
@@ -28,6 +33,38 @@ type DrawnShape = {
 };
 
 type DraftShape = Omit<DrawnShape, "id" | "measurements">;
+
+type OverlayGeometry = {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+};
+
+type ForceItem = OverlayGeometry & {
+  id: number;
+  category: "force";
+  kind: ForceTool;
+};
+
+type SupportItem = OverlayGeometry & {
+  id: number;
+  category: "support";
+  kind: SupportTool;
+};
+
+type ConnectionItem = OverlayGeometry & {
+  id: number;
+  category: "connection";
+  kind: ConnectionTool;
+};
+
+type OverlayItem = ForceItem | SupportItem | ConnectionItem;
+
+type DraftOverlay =
+  | Omit<ForceItem, "id">
+  | Omit<SupportItem, "id">
+  | Omit<ConnectionItem, "id">;
 
 type DragState = {
   id: number;
@@ -71,6 +108,30 @@ const lengthUnits: { value: LengthUnit; label: string }[] = [
 
 const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
 
+const forceTools: ForceTool[] = [
+  "Applied Force",
+  "Weight",
+  "Normal",
+  "Friction",
+  "Tension",
+];
+
+const supportTools: SupportTool[] = [
+  "Pin Support",
+  "Roller Support",
+  "Fixed Support",
+];
+
+const connectionTools: ConnectionTool[] = ["Hinge", "Cable", "Spring"];
+
+const forceLabels: Record<ForceTool, string> = {
+  "Applied Force": "F",
+  Weight: "W",
+  Normal: "N",
+  Friction: "f",
+  Tension: "T",
+};
+
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
@@ -103,20 +164,141 @@ function ShapeIcon({ shape }: { shape: Shape }) {
   );
 }
 
+function ToolIcon({ tool }: { tool: SidebarTool }) {
+  const common = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.55,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="shape-icon">
+      {tool === "Applied Force" && (
+        <>
+          <path d="M4 12h15" {...common} />
+          <path d="m15 8 4 4-4 4" {...common} />
+        </>
+      )}
+      {tool === "Weight" && (
+        <>
+          <path d="M12 4v15" {...common} />
+          <path d="m8 15 4 4 4-4" {...common} />
+        </>
+      )}
+      {tool === "Normal" && (
+        <>
+          <path d="M12 20V5" {...common} />
+          <path d="m8 9 4-4 4 4" {...common} />
+        </>
+      )}
+      {tool === "Friction" && (
+        <>
+          <path d="M20 12H5" {...common} />
+          <path d="m9 8-4 4 4 4" {...common} />
+        </>
+      )}
+      {tool === "Tension" && (
+        <>
+          <path d="M5 19 18 6" {...common} />
+          <path d="m13 6h5v5" {...common} />
+        </>
+      )}
+      {tool === "Pin Support" && (
+        <>
+          <path d="M12 5 5 17h14Z" {...common} />
+          <path d="M3 20h18" {...common} />
+        </>
+      )}
+      {tool === "Roller Support" && (
+        <>
+          <path d="M12 4 6 15h12Z" {...common} />
+          <circle cx="8" cy="18" r="2" {...common} />
+          <circle cx="16" cy="18" r="2" {...common} />
+          <path d="M3 21h18" {...common} />
+        </>
+      )}
+      {tool === "Fixed Support" && (
+        <>
+          <path d="M8 4v16" {...common} />
+          <path d="m8 6-4 3m4 1-4 3m4 1-4 3m4 1-3 2" {...common} />
+          <path d="M8 12h11" {...common} />
+        </>
+      )}
+      {tool === "Hinge" && (
+        <>
+          <circle cx="12" cy="12" r="6.5" {...common} />
+          <circle cx="12" cy="12" r="2" {...common} />
+        </>
+      )}
+      {tool === "Cable" && <path d="M4 7c5 10 11 10 16 0" {...common} />}
+      {tool === "Spring" && (
+        <path d="M3 12h3l2-5 3 10 3-10 3 10 2-5h2" {...common} />
+      )}
+      {tool === "Grid" && (
+        <>
+          <path d="M4 4h16v16H4Z" {...common} />
+          <path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16" {...common} />
+        </>
+      )}
+      {tool === "Snap to grid" && (
+        <>
+          <path d="M5 5h5v5H5Zm9 9h5v5h-5Z" {...common} />
+          <path d="M12 5v14M5 12h14" {...common} />
+        </>
+      )}
+      {tool === "Fit all" && (
+        <>
+          <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" {...common} />
+          <rect x="8" y="8" width="8" height="8" rx="1" {...common} />
+        </>
+      )}
+      {tool === "Reset view" && (
+        <>
+          <path d="M6 8a7 7 0 1 1-1 7" {...common} />
+          <path d="M6 4v4h4" {...common} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function Home() {
   const [mode, setMode] = useState<ViewMode>("2D");
   const [scaleMode, setScaleMode] = useState<ScaleMode>("schematic");
+
   const [shapesOpen, setShapesOpen] = useState(true);
+  const [forcesOpen, setForcesOpen] = useState(false);
+  const [supportsOpen, setSupportsOpen] = useState(false);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
+  const [canvasControlsOpen, setCanvasControlsOpen] = useState(false);
+
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
+  const [selectedForceTool, setSelectedForceTool] = useState<ForceTool | null>(
+    null,
+  );
+  const [selectedSupportTool, setSelectedSupportTool] =
+    useState<SupportTool | null>(null);
+  const [selectedConnectionTool, setSelectedConnectionTool] =
+    useState<ConnectionTool | null>(null);
+
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
   const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
   const [measurementDrafts, setMeasurementDrafts] = useState<
     Record<string, string>
   >({});
+
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  const [overlayItems, setOverlayItems] = useState<OverlayItem[]>([]);
+  const [draftOverlay, setDraftOverlay] = useState<DraftOverlay | null>(null);
+
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
+
   const canvasRef = useRef<HTMLElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const panStateRef = useRef<PanState | null>(null);
@@ -145,6 +327,13 @@ export default function Home() {
       }
     : null;
 
+  const hasActiveDrawingTool = Boolean(
+    selectedShape ||
+      selectedForceTool ||
+      selectedSupportTool ||
+      selectedConnectionTool,
+  );
+
   function getCanvasPoint(event: ReactPointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
 
@@ -152,6 +341,58 @@ export default function Home() {
       x: (event.clientX - rect.left - viewportOffset.x) / zoom,
       y: (event.clientY - rect.top - viewportOffset.y) / zoom,
     };
+  }
+
+  function getDrawingPoint(event: ReactPointerEvent<HTMLElement>) {
+    const point = getCanvasPoint(event);
+
+    if (!snapToGrid) return point;
+
+    const spacing = 20;
+
+    return {
+      x: Math.round(point.x / spacing) * spacing,
+      y: Math.round(point.y / spacing) * spacing,
+    };
+  }
+
+  function clearDrawingTools() {
+    setSelectedShape(null);
+    setSelectedForceTool(null);
+    setSelectedSupportTool(null);
+    setSelectedConnectionTool(null);
+  }
+
+  function toggleShapeTool(shape: Shape) {
+    const nextShape = selectedShape === shape ? null : shape;
+
+    clearDrawingTools();
+    setSelectedShape(nextShape);
+    setSelectedShapeId(null);
+  }
+
+  function toggleForceTool(tool: ForceTool) {
+    const nextTool = selectedForceTool === tool ? null : tool;
+
+    clearDrawingTools();
+    setSelectedForceTool(nextTool);
+    setSelectedShapeId(null);
+  }
+
+  function toggleSupportTool(tool: SupportTool) {
+    const nextTool = selectedSupportTool === tool ? null : tool;
+
+    clearDrawingTools();
+    setSelectedSupportTool(nextTool);
+    setSelectedShapeId(null);
+  }
+
+  function toggleConnectionTool(tool: ConnectionTool) {
+    const nextTool = selectedConnectionTool === tool ? null : tool;
+
+    clearDrawingTools();
+    setSelectedConnectionTool(nextTool);
+    setSelectedShapeId(null);
   }
 
   function handleWheel(event: ReactWheelEvent<HTMLElement>) {
@@ -181,7 +422,7 @@ export default function Home() {
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
     if (event.button !== 0) return;
 
-    if (!selectedShape) {
+    if (!hasActiveDrawingTool) {
       setSelectedShapeId(null);
       event.currentTarget.setPointerCapture(event.pointerId);
 
@@ -194,17 +435,58 @@ export default function Home() {
       return;
     }
 
-    const point = getCanvasPoint(event);
+    const point = getDrawingPoint(event);
 
     event.currentTarget.setPointerCapture(event.pointerId);
 
-    setDraftShape({
-      shape: selectedShape,
-      startX: point.x,
-      startY: point.y,
-      endX: point.x,
-      endY: point.y,
-    });
+    if (selectedShape) {
+      setDraftShape({
+        shape: selectedShape,
+        startX: point.x,
+        startY: point.y,
+        endX: point.x,
+        endY: point.y,
+      });
+
+      return;
+    }
+
+    if (selectedForceTool) {
+      setDraftOverlay({
+        category: "force",
+        kind: selectedForceTool,
+        startX: point.x,
+        startY: point.y,
+        endX: point.x,
+        endY: point.y,
+      });
+
+      return;
+    }
+
+    if (selectedSupportTool) {
+      setDraftOverlay({
+        category: "support",
+        kind: selectedSupportTool,
+        startX: point.x,
+        startY: point.y,
+        endX: point.x,
+        endY: point.y,
+      });
+
+      return;
+    }
+
+    if (selectedConnectionTool) {
+      setDraftOverlay({
+        category: "connection",
+        kind: selectedConnectionTool,
+        startX: point.x,
+        startY: point.y,
+        endX: point.x,
+        endY: point.y,
+      });
+    }
   }
 
   function handleShapePointerDown(
@@ -214,7 +496,7 @@ export default function Home() {
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
 
-    setSelectedShape(null);
+    clearDrawingTools();
     setSelectedShapeId(id);
 
     dragStateRef.current = {
@@ -492,7 +774,7 @@ export default function Home() {
         style={style}
         onPointerDown={(event) => {
           event.stopPropagation();
-          setSelectedShape(null);
+          clearDrawingTools();
           setSelectedShapeId(shape.id);
         }}
         onWheel={(event) => event.stopPropagation()}
@@ -635,6 +917,155 @@ export default function Home() {
     }
   }
 
+  function getOverlayBounds(item: OverlayItem) {
+    if (
+      item.category === "support" ||
+      (item.category === "connection" && item.kind === "Hinge")
+    ) {
+      return {
+        x: item.startX - 24,
+        y: item.startY - 24,
+        width: 48,
+        height: 52,
+      };
+    }
+
+    const padding = 16;
+    const minX = Math.min(item.startX, item.endX);
+    const minY = Math.min(item.startY, item.endY);
+    const maxX = Math.max(item.startX, item.endX);
+    const maxY = Math.max(item.startY, item.endY);
+
+    return {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
+    };
+  }
+
+  function fitAllView() {
+    const canvas = canvasRef.current;
+
+    if (!canvas) return;
+
+    const bounds = [
+      ...drawnShapes.map((shape) => getShapeBounds(getDisplayShape(shape))),
+      ...overlayItems.map(getOverlayBounds),
+    ];
+
+    if (bounds.length === 0) {
+      resetView();
+      return;
+    }
+
+    const minX = Math.min(...bounds.map((bound) => bound.x));
+    const minY = Math.min(...bounds.map((bound) => bound.y));
+    const maxX = Math.max(
+      ...bounds.map((bound) => bound.x + bound.width),
+    );
+    const maxY = Math.max(
+      ...bounds.map((bound) => bound.y + bound.height),
+    );
+
+    const worldWidth = Math.max(maxX - minX, 1);
+    const worldHeight = Math.max(maxY - minY, 1);
+
+    const rect = canvas.getBoundingClientRect();
+    const leftInset = rect.width <= 640 ? 246 : 286;
+    const rightInset = 32;
+    const topInset = 72;
+    const bottomInset = 48;
+
+    const availableWidth = Math.max(
+      120,
+      rect.width - leftInset - rightInset,
+    );
+    const availableHeight = Math.max(
+      120,
+      rect.height - topInset - bottomInset,
+    );
+
+    const minimumZoom = scaleMode === "to-scale" ? 0.000001 : 0.02;
+    const nextZoom = Math.min(
+      8,
+      Math.max(
+        minimumZoom,
+        Math.min(
+          availableWidth / worldWidth,
+          availableHeight / worldHeight,
+        ),
+      ),
+    );
+
+    const screenCenterX = leftInset + availableWidth / 2;
+    const screenCenterY = topInset + availableHeight / 2;
+    const worldCenterX = (minX + maxX) / 2;
+    const worldCenterY = (minY + maxY) / 2;
+
+    const nextOffset = {
+      x: screenCenterX - worldCenterX * nextZoom,
+      y: screenCenterY - worldCenterY * nextZoom,
+    };
+
+    setZoom(nextZoom);
+    setViewportOffset(nextOffset);
+
+    if (scaleMode === "schematic") {
+      schematicViewRef.current = {
+        zoom: nextZoom,
+        viewportOffset: nextOffset,
+      };
+    }
+  }
+
+  function resetView() {
+    const nextOffset = { x: 0, y: 0 };
+
+    setZoom(1);
+    setViewportOffset(nextOffset);
+
+    if (scaleMode === "schematic") {
+      schematicViewRef.current = {
+        zoom: 1,
+        viewportOffset: nextOffset,
+      };
+    }
+  }
+
+  function getSpringPoints(item: OverlayGeometry) {
+    const dx = item.endX - item.startX;
+    const dy = item.endY - item.startY;
+    const length = Math.hypot(dx, dy);
+
+    if (length < 1) {
+      return `${item.startX},${item.startY} ${item.endX},${item.endY}`;
+    }
+
+    const ux = dx / length;
+    const uy = dy / length;
+    const px = -uy;
+    const py = ux;
+    const segments = 10;
+    const amplitude = 7;
+    const points = [`${item.startX},${item.startY}`];
+
+    for (let index = 1; index < segments; index += 1) {
+      const progress = index / segments;
+      const offset = index % 2 === 0 ? -amplitude : amplitude;
+
+      points.push(
+        `${item.startX + dx * progress + px * offset},${
+          item.startY + dy * progress + py * offset
+        }`,
+      );
+    }
+
+    points.push(`${item.endX},${item.endY}`);
+
+    return points.join(" ");
+  }
+
   function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
     const dragState = dragStateRef.current;
 
@@ -689,9 +1120,32 @@ export default function Home() {
       return;
     }
 
+    if (draftOverlay) {
+      const isPointTool =
+        draftOverlay.category === "support" ||
+        (draftOverlay.category === "connection" &&
+          draftOverlay.kind === "Hinge");
+
+      if (isPointTool) return;
+
+      const point = getDrawingPoint(event);
+
+      setDraftOverlay((current) =>
+        current
+          ? {
+              ...current,
+              endX: point.x,
+              endY: point.y,
+            }
+          : null,
+      );
+
+      return;
+    }
+
     if (!draftShape) return;
 
-    const point = getCanvasPoint(event);
+    const point = getDrawingPoint(event);
 
     setDraftShape((current) =>
       current
@@ -715,9 +1169,36 @@ export default function Home() {
       return;
     }
 
+    if (draftOverlay) {
+      const point = getDrawingPoint(event);
+      const isPointTool =
+        draftOverlay.category === "support" ||
+        (draftOverlay.category === "connection" &&
+          draftOverlay.kind === "Hinge");
+
+      const finishedOverlay = {
+        ...draftOverlay,
+        id: Date.now(),
+        endX: isPointTool ? draftOverlay.startX : point.x,
+        endY: isPointTool ? draftOverlay.startY : point.y,
+      } as OverlayItem;
+
+      const length = Math.hypot(
+        finishedOverlay.endX - finishedOverlay.startX,
+        finishedOverlay.endY - finishedOverlay.startY,
+      );
+
+      if (isPointTool || length > 3) {
+        setOverlayItems((current) => [...current, finishedOverlay]);
+      }
+
+      setDraftOverlay(null);
+      return;
+    }
+
     if (!draftShape) return;
 
-    const point = getCanvasPoint(event);
+    const point = getDrawingPoint(event);
 
     const geometry: DraftShape = {
       ...draftShape,
@@ -752,6 +1233,122 @@ export default function Home() {
     }
 
     setDraftShape(null);
+  }
+
+  function renderOverlayItem(
+    item: OverlayItem | DraftOverlay,
+    key: string | number,
+    draft = false,
+  ) {
+    const className = [
+      "diagram-overlay",
+      `diagram-overlay-${item.category}`,
+      item.category === "connection" && item.kind === "Cable"
+        ? "connection-cable"
+        : "",
+      draft ? "is-draft" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    if (item.category === "force") {
+      return (
+        <g key={key} className={className}>
+          <line
+            x1={item.startX}
+            y1={item.startY}
+            x2={item.endX}
+            y2={item.endY}
+            markerEnd="url(#force-arrowhead)"
+          />
+          <text
+            x={(item.startX + item.endX) / 2 + 8}
+            y={(item.startY + item.endY) / 2 - 8}
+          >
+            {forceLabels[item.kind]}
+          </text>
+        </g>
+      );
+    }
+
+    if (item.category === "support") {
+      const x = item.startX;
+      const y = item.startY;
+
+      if (item.kind === "Pin Support") {
+        return (
+          <g key={key} className={className}>
+            <path
+              className="support-body"
+              d={`M ${x} ${y} L ${x - 15} ${y + 23} L ${x + 15} ${
+                y + 23
+              } Z`}
+            />
+            <line x1={x - 20} y1={y + 27} x2={x + 20} y2={y + 27} />
+          </g>
+        );
+      }
+
+      if (item.kind === "Roller Support") {
+        return (
+          <g key={key} className={className}>
+            <path
+              className="support-body"
+              d={`M ${x} ${y} L ${x - 14} ${y + 20} L ${x + 14} ${
+                y + 20
+              } Z`}
+            />
+            <circle className="support-body" cx={x - 8} cy={y + 25} r="3" />
+            <circle className="support-body" cx={x + 8} cy={y + 25} r="3" />
+            <line x1={x - 20} y1={y + 30} x2={x + 20} y2={y + 30} />
+          </g>
+        );
+      }
+
+      return (
+        <g key={key} className={className}>
+          <line x1={x} y1={y - 22} x2={x} y2={y + 22} />
+          <line x1={x} y1={y} x2={x + 24} y2={y} />
+          {[-18, -9, 0, 9, 18].map((offset) => (
+            <line
+              key={offset}
+              x1={x}
+              y1={y + offset}
+              x2={x - 9}
+              y2={y + offset + 7}
+            />
+          ))}
+        </g>
+      );
+    }
+
+    if (item.kind === "Hinge") {
+      return (
+        <g key={key} className={className}>
+          <circle className="support-body" cx={item.startX} cy={item.startY} r="9" />
+          <circle cx={item.startX} cy={item.startY} r="3" />
+        </g>
+      );
+    }
+
+    if (item.kind === "Cable") {
+      return (
+        <g key={key} className={className}>
+          <line
+            x1={item.startX}
+            y1={item.startY}
+            x2={item.endX}
+            y2={item.endY}
+          />
+        </g>
+      );
+    }
+
+    return (
+      <g key={key} className={className}>
+        <polyline points={getSpringPoints(item)} />
+      </g>
+    );
   }
 
   function renderShape(
@@ -874,7 +1471,7 @@ export default function Home() {
     <main className="editor-shell">
       <section
         ref={canvasRef}
-        className={`canvas ${selectedShape ? "has-active-tool" : ""}`}
+        className={`canvas ${hasActiveDrawingTool ? "has-active-tool" : ""}`}
         aria-label={`${mode} drawing canvas`}
         onWheel={handleWheel}
         onPointerDown={handlePointerDown}
@@ -884,27 +1481,45 @@ export default function Home() {
           dragStateRef.current = null;
           panStateRef.current = null;
           setDraftShape(null);
+          setDraftOverlay(null);
         }}
       >
-        <div
-          className="canvas-grid"
-          style={{
-            backgroundSize: `
-              ${20 * zoom}px ${20 * zoom}px,
-              ${20 * zoom}px ${20 * zoom}px,
-              ${100 * zoom}px ${100 * zoom}px,
-              ${100 * zoom}px ${100 * zoom}px
-            `,
-            backgroundPosition: `
-              ${viewportOffset.x}px ${viewportOffset.y}px,
-              ${viewportOffset.x}px ${viewportOffset.y}px,
-              ${viewportOffset.x}px ${viewportOffset.y}px,
-              ${viewportOffset.x}px ${viewportOffset.y}px
-            `,
-          }}
-        />
+        {showGrid && (
+          <div
+            className="canvas-grid"
+            style={{
+              backgroundSize: `
+                ${20 * zoom}px ${20 * zoom}px,
+                ${20 * zoom}px ${20 * zoom}px,
+                ${100 * zoom}px ${100 * zoom}px,
+                ${100 * zoom}px ${100 * zoom}px
+              `,
+              backgroundPosition: `
+                ${viewportOffset.x}px ${viewportOffset.y}px,
+                ${viewportOffset.x}px ${viewportOffset.y}px,
+                ${viewportOffset.x}px ${viewportOffset.y}px,
+                ${viewportOffset.x}px ${viewportOffset.y}px
+              `,
+            }}
+          />
+        )}
 
         <svg className="drawing-layer">
+          <defs>
+            <marker
+              id="force-arrowhead"
+              viewBox="0 0 8 8"
+              refX="7"
+              refY="4"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0 0 8 4 0 8Z" fill="#171717" />
+            </marker>
+          </defs>
+
           <g
             transform={`translate(${viewportOffset.x} ${viewportOffset.y}) scale(${zoom})`}
           >
@@ -912,11 +1527,18 @@ export default function Home() {
               renderShape(getDisplayShape(shape), shape.id, true),
             )}
 
+            {overlayItems.map((item) =>
+              renderOverlayItem(item, item.id),
+            )}
+
             {draftShape && (
               <g className="draft-shape">
                 {renderShape(draftShape, "draft")}
               </g>
             )}
+
+            {draftOverlay &&
+              renderOverlayItem(draftOverlay, "draft-overlay", true)}
           </g>
         </svg>
 
@@ -987,16 +1609,166 @@ export default function Home() {
                     type="button"
                     key={shape}
                     aria-pressed={active}
-                    onClick={() => {
-                      setSelectedShape(active ? null : shape);
-                      setSelectedShapeId(null);
-                    }}
+                    onClick={() => toggleShapeTool(shape)}
                   >
                     <ShapeIcon shape={shape} />
                     <span>{shape}</span>
                   </button>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        <div className="tool-section">
+          <button
+            className="section-trigger"
+            type="button"
+            aria-expanded={forcesOpen}
+            onClick={() => setForcesOpen((value) => !value)}
+          >
+            <span>Forces</span>
+            <ChevronIcon open={forcesOpen} />
+          </button>
+
+          {forcesOpen && (
+            <div className="shape-list">
+              {forceTools.map((tool) => {
+                const active = selectedForceTool === tool;
+
+                return (
+                  <button
+                    className={`shape-button ${active ? "is-active" : ""}`}
+                    type="button"
+                    key={tool}
+                    aria-pressed={active}
+                    onClick={() => toggleForceTool(tool)}
+                  >
+                    <ToolIcon tool={tool} />
+                    <span>{tool}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="tool-section">
+          <button
+            className="section-trigger"
+            type="button"
+            aria-expanded={supportsOpen}
+            onClick={() => setSupportsOpen((value) => !value)}
+          >
+            <span>Supports</span>
+            <ChevronIcon open={supportsOpen} />
+          </button>
+
+          {supportsOpen && (
+            <div className="shape-list">
+              {supportTools.map((tool) => {
+                const active = selectedSupportTool === tool;
+
+                return (
+                  <button
+                    className={`shape-button ${active ? "is-active" : ""}`}
+                    type="button"
+                    key={tool}
+                    aria-pressed={active}
+                    onClick={() => toggleSupportTool(tool)}
+                  >
+                    <ToolIcon tool={tool} />
+                    <span>{tool}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="tool-section">
+          <button
+            className="section-trigger"
+            type="button"
+            aria-expanded={connectionsOpen}
+            onClick={() => setConnectionsOpen((value) => !value)}
+          >
+            <span>Connections</span>
+            <ChevronIcon open={connectionsOpen} />
+          </button>
+
+          {connectionsOpen && (
+            <div className="shape-list">
+              {connectionTools.map((tool) => {
+                const active = selectedConnectionTool === tool;
+
+                return (
+                  <button
+                    className={`shape-button ${active ? "is-active" : ""}`}
+                    type="button"
+                    key={tool}
+                    aria-pressed={active}
+                    onClick={() => toggleConnectionTool(tool)}
+                  >
+                    <ToolIcon tool={tool} />
+                    <span>{tool}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="tool-section">
+          <button
+            className="section-trigger"
+            type="button"
+            aria-expanded={canvasControlsOpen}
+            onClick={() => setCanvasControlsOpen((value) => !value)}
+          >
+            <span>Canvas</span>
+            <ChevronIcon open={canvasControlsOpen} />
+          </button>
+
+          {canvasControlsOpen && (
+            <div className="shape-list">
+              <button
+                className={`shape-button ${showGrid ? "is-active" : ""}`}
+                type="button"
+                aria-pressed={showGrid}
+                onClick={() => setShowGrid((value) => !value)}
+              >
+                <ToolIcon tool="Grid" />
+                <span>Grid</span>
+              </button>
+
+              <button
+                className={`shape-button ${snapToGrid ? "is-active" : ""}`}
+                type="button"
+                aria-pressed={snapToGrid}
+                onClick={() => setSnapToGrid((value) => !value)}
+              >
+                <ToolIcon tool="Snap to grid" />
+                <span>Snap to grid</span>
+              </button>
+
+              <button
+                className="shape-button"
+                type="button"
+                onClick={fitAllView}
+              >
+                <ToolIcon tool="Fit all" />
+                <span>Fit all</span>
+              </button>
+
+              <button
+                className="shape-button"
+                type="button"
+                onClick={resetView}
+              >
+                <ToolIcon tool="Reset view" />
+                <span>Reset view</span>
+              </button>
             </div>
           )}
         </div>
