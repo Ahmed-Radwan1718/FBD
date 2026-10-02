@@ -101,6 +101,9 @@ export default function Home() {
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
   const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
+  const [measurementDrafts, setMeasurementDrafts] = useState<
+    Record<string, string>
+  >({});
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -313,6 +316,16 @@ export default function Home() {
     );
   }
 
+  function clearMeasurementDraft(key: string) {
+    setMeasurementDrafts((current) => {
+      if (!(key in current)) return current;
+
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
   function renderMeasurementEditor(
     shape: DrawnShape,
     dimension: MeasurementDimension,
@@ -321,6 +334,10 @@ export default function Home() {
     style: CSSProperties,
     key: string,
   ) {
+    const draftKey = `${shape.id}:${dimension}`;
+    const value =
+      measurementDrafts[draftKey] ?? formatDimensionValue(pixels);
+
     return (
       <label
         key={key}
@@ -341,11 +358,32 @@ export default function Home() {
           step="any"
           inputMode="decimal"
           aria-label={`Shape ${dimension}`}
-          value={formatDimensionValue(pixels)}
+          title="Press Enter to apply"
+          value={value}
           onFocus={(event) => event.currentTarget.select()}
           onChange={(event) =>
-            updateShapeDimension(shape.id, dimension, event.target.value)
+            setMeasurementDrafts((current) => ({
+              ...current,
+              [draftKey]: event.target.value,
+            }))
           }
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              updateShapeDimension(
+                shape.id,
+                dimension,
+                event.currentTarget.value,
+              );
+              clearMeasurementDraft(draftKey);
+              event.currentTarget.blur();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              clearMeasurementDraft(draftKey);
+              event.currentTarget.blur();
+            }
+          }}
+          onBlur={() => clearMeasurementDraft(draftKey)}
         />
         <span className="shape-measurement-separator" aria-hidden="true">
           ⋅
@@ -353,9 +391,10 @@ export default function Home() {
         <select
           aria-label="Dimension unit"
           value={dimensionUnit}
-          onChange={(event) =>
-            setDimensionUnit(event.target.value as LengthUnit)
-          }
+          onChange={(event) => {
+            setDimensionUnit(event.target.value as LengthUnit);
+            setMeasurementDrafts({});
+          }}
         >
           {lengthUnits.map((unit) => (
             <option key={unit.value} value={unit.value}>
@@ -438,6 +477,7 @@ export default function Home() {
     setDrawnShapes((current) =>
       current.filter((shape) => shape.id !== selectedShapeId),
     );
+    setMeasurementDrafts({});
     setSelectedShapeId(null);
   }
 
