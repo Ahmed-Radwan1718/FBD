@@ -110,6 +110,15 @@ export default function Home() {
     ? getShapeBounds(selectedDrawnShape)
     : null;
 
+  const selectedScreenBounds = selectedBounds
+    ? {
+        x: selectedBounds.x * zoom + viewportOffset.x,
+        y: selectedBounds.y * zoom + viewportOffset.y,
+        width: selectedBounds.width * zoom,
+        height: selectedBounds.height * zoom,
+      }
+    : null;
+
   function getCanvasPoint(event: ReactPointerEvent<HTMLElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
 
@@ -507,130 +516,160 @@ export default function Home() {
         }}
       >
         <div
-          className="canvas-viewport"
+          className="canvas-grid"
           style={{
-            transform: `translate(${viewportOffset.x}px, ${viewportOffset.y}px) scale(${zoom})`,
+            backgroundSize: `
+              ${20 * zoom}px ${20 * zoom}px,
+              ${20 * zoom}px ${20 * zoom}px,
+              ${100 * zoom}px ${100 * zoom}px,
+              ${100 * zoom}px ${100 * zoom}px
+            `,
+            backgroundPosition: `
+              ${viewportOffset.x}px ${viewportOffset.y}px,
+              ${viewportOffset.x}px ${viewportOffset.y}px,
+              ${viewportOffset.x}px ${viewportOffset.y}px,
+              ${viewportOffset.x}px ${viewportOffset.y}px
+            `,
           }}
-        >
-          <div className="canvas-grid" />
+        />
 
-          <svg className="drawing-layer">
-          {drawnShapes.map((shape) => renderShape(shape, shape.id, true))}
-          {draftShape && (
-            <g className="draft-shape">
-              {renderShape(draftShape, "draft")}
-            </g>
-          )}
+        <svg className="drawing-layer">
+          <g
+            transform={`translate(${viewportOffset.x} ${viewportOffset.y}) scale(${zoom})`}
+          >
+            {drawnShapes.map((shape) =>
+              renderShape(shape, shape.id, true),
+            )}
+
+            {draftShape && (
+              <g className="draft-shape">
+                {renderShape(draftShape, "draft")}
+              </g>
+            )}
+          </g>
         </svg>
 
-        {selectedDrawnShape && selectedDimensions && selectedBounds && (
-          <div
-            className="shape-controls-layer"
-            onPointerDown={(event) => event.stopPropagation()}
-            onWheel={(event) => event.stopPropagation()}
-          >
-            <label
-              className="shape-dimension-control shape-dimension-width"
-              style={{
-                left: selectedBounds.x + selectedBounds.width / 2,
-                top: selectedBounds.y,
-              }}
+        {selectedDrawnShape &&
+          selectedDimensions &&
+          selectedScreenBounds && (
+            <div
+              className="shape-controls-layer"
+              onPointerDown={(event) => event.stopPropagation()}
+              onWheel={(event) => event.stopPropagation()}
             >
-              <input
-                type="number"
-                min="0"
-                step="any"
-                aria-label="Shape width"
-                value={formatDimensionValue(selectedDimensions.width)}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) =>
-                  updateShapeDimension(
-                    selectedDrawnShape.id,
-                    "width",
-                    event.target.value,
-                  )
-                }
-              />
-
-              <span className="dimension-unit">
-                <select
-                  aria-label="Dimension unit"
-                  value={dimensionUnit}
+              <label
+                className="shape-dimension-control shape-dimension-width"
+                style={{
+                  left:
+                    selectedScreenBounds.x +
+                    selectedScreenBounds.width / 2,
+                  top: selectedScreenBounds.y,
+                }}
+              >
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  aria-label="Shape width"
+                  value={formatDimensionValue(selectedDimensions.width)}
+                  onFocus={(event) => event.currentTarget.select()}
                   onChange={(event) =>
-                    setDimensionUnit(event.target.value as LengthUnit)
+                    updateShapeDimension(
+                      selectedDrawnShape.id,
+                      "width",
+                      event.target.value,
+                    )
                   }
-                >
-                  {lengthUnits.map((unit) => (
-                    <option key={unit.value} value={unit.value}>
-                      {unit.label}
-                    </option>
-                  ))}
-                </select>
-              </span>
-            </label>
+                />
 
-            {selectedDrawnShape.shape !== "Square" &&
-              selectedDrawnShape.shape !== "Circle" && (
-                <label
-                  className="shape-dimension-control shape-dimension-height"
-                  style={{
-                    left: selectedBounds.x + selectedBounds.width,
-                    top: selectedBounds.y + selectedBounds.height / 2,
-                  }}
-                >
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    aria-label="Shape height"
-                    value={formatDimensionValue(selectedDimensions.height)}
-                    onFocus={(event) => event.currentTarget.select()}
+                <span className="dimension-unit">
+                  <select
+                    aria-label="Dimension unit"
+                    value={dimensionUnit}
                     onChange={(event) =>
-                      updateShapeDimension(
-                        selectedDrawnShape.id,
-                        "height",
-                        event.target.value,
-                      )
+                      setDimensionUnit(event.target.value as LengthUnit)
                     }
-                  />
+                  >
+                    {lengthUnits.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
 
-                  <span className="dimension-unit">
-                    <select
-                      aria-label="Dimension unit"
-                      value={dimensionUnit}
+              {selectedDrawnShape.shape !== "Square" &&
+                selectedDrawnShape.shape !== "Circle" && (
+                  <label
+                    className="shape-dimension-control shape-dimension-height"
+                    style={{
+                      left:
+                        selectedScreenBounds.x +
+                        selectedScreenBounds.width,
+                      top:
+                        selectedScreenBounds.y +
+                        selectedScreenBounds.height / 2,
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      aria-label="Shape height"
+                      value={formatDimensionValue(
+                        selectedDimensions.height,
+                      )}
+                      onFocus={(event) => event.currentTarget.select()}
                       onChange={(event) =>
-                        setDimensionUnit(event.target.value as LengthUnit)
+                        updateShapeDimension(
+                          selectedDrawnShape.id,
+                          "height",
+                          event.target.value,
+                        )
                       }
-                    >
-                      {lengthUnits.map((unit) => (
-                        <option key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </option>
-                      ))}
-                    </select>
-                  </span>
-                </label>
-              )}
+                    />
 
-            <button
-              className="shape-delete-control"
-              type="button"
-              aria-label="Delete shape"
-              style={{
-                left: selectedBounds.x + selectedBounds.width,
-                top: selectedBounds.y,
-              }}
-              onClick={deleteSelectedShape}
-            >
-              ×
-            </button>
-          </div>
-        )}
+                    <span className="dimension-unit">
+                      <select
+                        aria-label="Dimension unit"
+                        value={dimensionUnit}
+                        onChange={(event) =>
+                          setDimensionUnit(
+                            event.target.value as LengthUnit,
+                          )
+                        }
+                      >
+                        {lengthUnits.map((unit) => (
+                          <option key={unit.value} value={unit.value}>
+                            {unit.label}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  </label>
+                )}
 
-          <div className="canvas-origin" aria-hidden="true">
-            <span className="axis-x" />
-            <span className="axis-y" />
-          </div>
+              <button
+                className="shape-delete-control"
+                type="button"
+                aria-label="Delete shape"
+                style={{
+                  left:
+                    selectedScreenBounds.x +
+                    selectedScreenBounds.width,
+                  top: selectedScreenBounds.y,
+                }}
+                onClick={deleteSelectedShape}
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+        <div className="canvas-origin" aria-hidden="true">
+          <span className="axis-x" />
+          <span className="axis-y" />
         </div>
       </section>
 
