@@ -1529,58 +1529,58 @@ export default function Home() {
           {isSelectedForce && "id" in item && (
             <foreignObject
               className="force-inline-editor-object"
-              x={midpointX - 132}
-              y={midpointY - 78}
-              width={264}
-              height={68}
+              x={midpointX - 103}
+              y={midpointY - 48}
+              width={206}
+              height={36}
             >
               <div
                 className="force-inline-editor"
                 onPointerDown={(event) => event.stopPropagation()}
               >
-                <label className="force-property-field">
-                  <span>Name</span>
+                <input
+                  className="force-inline-name"
+                  type="text"
+                  aria-label="Force name"
+                  title="Force name"
+                  value={item.name}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onChange={(event) =>
+                    updateForceName(item.id, event.currentTarget.value)
+                  }
+                />
+
+                <span className="force-inline-separator" aria-hidden="true" />
+
+                <label className="force-inline-value" title="Magnitude">
                   <input
-                    type="text"
-                    value={item.name}
+                    type="number"
+                    min="0"
+                    step="any"
+                    aria-label="Force magnitude"
+                    value={item.magnitude}
                     onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) =>
-                      updateForceName(item.id, event.currentTarget.value)
+                      updateForceMagnitude(item.id, event.currentTarget.value)
                     }
                   />
+                  <span>N</span>
                 </label>
 
-                <label className="force-property-field">
-                  <span>Magnitude</span>
-                  <div className="force-property-number">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.magnitude}
-                      onFocus={(event) => event.currentTarget.select()}
-                      onChange={(event) =>
-                        updateForceMagnitude(item.id, event.currentTarget.value)
-                      }
-                    />
-                    <span>N</span>
-                  </div>
-                </label>
+                <span className="force-inline-separator" aria-hidden="true" />
 
-                <label className="force-property-field">
-                  <span>Angle</span>
-                  <div className="force-property-number">
-                    <input
-                      type="number"
-                      step="any"
-                      value={Number(getForceAngle(item).toFixed(1))}
-                      onFocus={(event) => event.currentTarget.select()}
-                      onChange={(event) =>
-                        updateForceAngle(item.id, event.currentTarget.value)
-                      }
-                    />
-                    <span>°</span>
-                  </div>
+                <label className="force-inline-value" title="Angle from +x">
+                  <input
+                    type="number"
+                    step="any"
+                    aria-label="Force angle"
+                    value={Number(getForceAngle(item).toFixed(1))}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateForceAngle(item.id, event.currentTarget.value)
+                    }
+                  />
+                  <span>°</span>
                 </label>
               </div>
             </foreignObject>
