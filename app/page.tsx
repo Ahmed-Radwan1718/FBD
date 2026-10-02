@@ -313,7 +313,10 @@ export default function Home() {
             selectedShapeId === shape.id ? "is-selected" : ""
           }`}
           style={{
-            left: bounds.x * zoom + viewportOffset.x - 10,
+            left:
+              (bounds.x + bounds.width) * zoom +
+              viewportOffset.x +
+              10,
             top:
               (bounds.y + bounds.height / 2) * zoom +
               viewportOffset.y,

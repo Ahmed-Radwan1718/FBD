@@ -148,7 +148,7 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-vertical {
-  transform: translate(-50%, -50%) rotate(-90deg);
+  transform: translateY(-50%);
 }
 
 .canvas-grid {
