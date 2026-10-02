@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 
 type ViewMode = "2D" | "3D";
@@ -16,6 +16,13 @@ type DrawnShape = {
 };
 
 type DraftShape = Omit<DrawnShape, "id">;
+
+type DragState = {
+  id: number;
+  pointerId: number;
+  lastClientX: number;
+  lastClientY: number;
+};
 
 const shapes: Shape[] = ["Square", "Rectangle", "Circle", "Triangle", "Line"];
 
@@ -58,6 +65,7 @@ export default function Home() {
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  const dragStateRef = useRef<DragState | null>(null);
 
   const selectedDrawnShape =
     drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
@@ -103,8 +111,17 @@ export default function Home() {
     id: number,
   ) {
     event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
     setSelectedShape(null);
     setSelectedShapeId(id);
+
+    dragStateRef.current = {
+      id,
+      pointerId: event.pointerId,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+    };
   }
 
   function getShapeDimensions(shape: DrawnShape) {
@@ -200,6 +217,37 @@ export default function Home() {
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
+    const dragState = dragStateRef.current;
+
+    if (dragState && dragState.pointerId === event.pointerId) {
+      const deltaX = event.clientX - dragState.lastClientX;
+      const deltaY = event.clientY - dragState.lastClientY;
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        setDrawnShapes((current) =>
+          current.map((shape) =>
+            shape.id === dragState.id
+              ? {
+                  ...shape,
+                  startX: shape.startX + deltaX,
+                  startY: shape.startY + deltaY,
+                  endX: shape.endX + deltaX,
+                  endY: shape.endY + deltaY,
+                }
+              : shape,
+          ),
+        );
+
+        dragStateRef.current = {
+          ...dragState,
+          lastClientX: event.clientX,
+          lastClientY: event.clientY,
+        };
+      }
+
+      return;
+    }
+
     if (!draftShape) return;
 
     const point = getCanvasPoint(event);
@@ -216,6 +264,11 @@ export default function Home() {
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
+    if (dragStateRef.current?.pointerId === event.pointerId) {
+      dragStateRef.current = null;
+      return;
+    }
+
     if (!draftShape) return;
 
     const point = getCanvasPoint(event);
@@ -361,7 +414,10 @@ export default function Home() {
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={() => setDraftShape(null)}
+        onPointerCancel={() => {
+          dragStateRef.current = null;
+          setDraftShape(null);
+        }}
       >
         <div className="canvas-grid" />
 
