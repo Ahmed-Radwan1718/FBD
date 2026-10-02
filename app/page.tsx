@@ -285,6 +285,9 @@ export default function Home() {
 
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
   const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
+  const [activeMeasurement, setActiveMeasurement] = useState<string | null>(
+    null,
+  );
   const [measurementDrafts, setMeasurementDrafts] = useState<
     Record<string, string>
   >({});
@@ -760,18 +763,25 @@ export default function Home() {
     className: string,
     style: CSSProperties,
     key: string,
+    guideLength: number,
   ) {
     const draftKey = `${shape.id}:${dimension}`;
+    const isEditing = activeMeasurement === draftKey;
     const value =
       measurementDrafts[draftKey] ?? formatDimensionValue(meters);
 
+    const measurementStyle = {
+      ...style,
+      "--measurement-guide-length": `${guideLength}px`,
+    } as CSSProperties;
+
     return (
-      <label
+      <div
         key={key}
         className={`shape-measurement ${className} ${
           selectedShapeId === shape.id ? "is-selected" : ""
-        }`}
-        style={style}
+        } ${isEditing ? "is-editing" : ""}`}
+        style={measurementStyle}
         onPointerDown={(event) => {
           event.stopPropagation();
           clearDrawingTools();
@@ -779,57 +789,93 @@ export default function Home() {
         }}
         onWheel={(event) => event.stopPropagation()}
       >
-        <input
-          type="number"
-          min="0"
-          step="any"
-          inputMode="decimal"
-          aria-label={`Shape ${dimension}`}
-          title="Press Enter to apply"
-          value={value}
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(event) =>
-            setMeasurementDrafts((current) => ({
-              ...current,
-              [draftKey]: event.target.value,
-            }))
-          }
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              updateShapeDimension(
-                shape.id,
-                dimension,
-                event.currentTarget.value,
-              );
+        <span className="shape-measurement-guide" aria-hidden="true" />
+
+        {isEditing ? (
+          <label
+            className="shape-measurement-editor"
+            onBlur={(event) => {
+              if (
+                event.currentTarget.contains(
+                  event.relatedTarget as Node | null,
+                )
+              ) {
+                return;
+              }
+
               clearMeasurementDraft(draftKey);
-              event.currentTarget.blur();
-            } else if (event.key === "Escape") {
-              event.preventDefault();
-              clearMeasurementDraft(draftKey);
-              event.currentTarget.blur();
-            }
-          }}
-          onBlur={() => clearMeasurementDraft(draftKey)}
-        />
-        <span className="shape-measurement-separator" aria-hidden="true">
-          ⋅
-        </span>
-        <select
-          aria-label="Dimension unit"
-          value={dimensionUnit}
-          onChange={(event) => {
-            setDimensionUnit(event.target.value as LengthUnit);
-            setMeasurementDrafts({});
-          }}
-        >
-          {lengthUnits.map((unit) => (
-            <option key={unit.value} value={unit.value}>
-              {unit.label}
-            </option>
-          ))}
-        </select>
-      </label>
+              setActiveMeasurement(null);
+            }}
+          >
+            <input
+              autoFocus
+              type="number"
+              min="0"
+              step="any"
+              inputMode="decimal"
+              aria-label={`Shape ${dimension}`}
+              title="Press Enter to apply"
+              value={value}
+              onFocus={(event) => event.currentTarget.select()}
+              onChange={(event) =>
+                setMeasurementDrafts((current) => ({
+                  ...current,
+                  [draftKey]: event.target.value,
+                }))
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  updateShapeDimension(
+                    shape.id,
+                    dimension,
+                    event.currentTarget.value,
+                  );
+                  clearMeasurementDraft(draftKey);
+                  setActiveMeasurement(null);
+                  event.currentTarget.blur();
+                } else if (event.key === "Escape") {
+                  event.preventDefault();
+                  clearMeasurementDraft(draftKey);
+                  setActiveMeasurement(null);
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+
+            <span className="shape-measurement-separator" aria-hidden="true">
+              ·
+            </span>
+
+            <select
+              aria-label="Dimension unit"
+              value={dimensionUnit}
+              onChange={(event) => {
+                setDimensionUnit(event.target.value as LengthUnit);
+                setMeasurementDrafts({});
+              }}
+            >
+              {lengthUnits.map((unit) => (
+                <option key={unit.value} value={unit.value}>
+                  {unit.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <button
+            className="shape-measurement-display"
+            type="button"
+            title="Click to edit dimension"
+            onClick={() => setActiveMeasurement(draftKey)}
+          >
+            <span>{formatDimensionValue(meters)}</span>
+            <span className="shape-measurement-unit">
+              {dimensionUnit}
+            </span>
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -849,9 +895,10 @@ export default function Home() {
           top:
             ((displayShape.startY + displayShape.endY) / 2) * zoom +
             viewportOffset.y +
-            12,
+            16,
         },
         `measurements-${shape.id}`,
+        0,
       );
     }
 
@@ -871,9 +918,10 @@ export default function Home() {
             top:
               (bounds.y + bounds.height) * zoom +
               viewportOffset.y +
-              10,
+              24,
           },
           `width-${shape.id}`,
+          bounds.width * zoom,
         )}
 
         {renderMeasurementEditor(
@@ -885,12 +933,13 @@ export default function Home() {
             left:
               (bounds.x + bounds.width) * zoom +
               viewportOffset.x +
-              10,
+              24,
             top:
               (bounds.y + bounds.height / 2) * zoom +
               viewportOffset.y,
           },
           `height-${shape.id}`,
+          bounds.height * zoom,
         )}
       </div>
     );
