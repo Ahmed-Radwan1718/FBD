@@ -304,19 +304,29 @@ line.canvas-shape.saved-shape {
 .shape-measurement-editor {
   position: relative;
   z-index: 3;
-  height: 30px;
-  padding: 0 7px 0 9px;
-  border: 1px solid rgba(17, 17, 17, 0.22);
-  border-radius: 7px;
+  height: 28px;
+  padding: 2px 5px 2px 8px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  border-radius: 6px;
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 2px 8px rgba(17, 17, 17, 0.1);
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.08);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  transition:
+    border-color 130ms ease,
+    box-shadow 130ms ease;
+}
+
+.shape-measurement-editor:focus-within {
+  border-color: rgba(17, 17, 17, 0.38);
+  box-shadow:
+    0 2px 8px rgba(17, 17, 17, 0.08),
+    0 0 0 2px rgba(17, 17, 17, 0.04);
 }
 
 .shape-measurement-editor input {
-  width: 52px;
+  width: 48px;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -336,11 +346,15 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-separator {
-  color: #aaa7a1;
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: rgba(17, 17, 17, 0.14);
+  flex: 0 0 1px;
 }
 
 .shape-measurement-editor select {
-  width: 84px;
+  width: 42px;
   min-width: 0;
   padding: 0;
   border: 0;
