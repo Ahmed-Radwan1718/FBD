@@ -8,7 +8,14 @@ import type {
 } from "react";
 
 type ViewMode = "2D" | "3D";
+type ScaleMode = "schematic" | "to-scale";
 type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
+
+type ShapeMeasurements = {
+  widthMeters: number;
+  heightMeters: number;
+  lengthMeters: number;
+};
 
 type DrawnShape = {
   id: number;
@@ -17,9 +24,10 @@ type DrawnShape = {
   startY: number;
   endX: number;
   endY: number;
+  measurements: ShapeMeasurements;
 };
 
-type DraftShape = Omit<DrawnShape, "id">;
+type DraftShape = Omit<DrawnShape, "id" | "measurements">;
 
 type DragState = {
   id: number;
@@ -97,6 +105,7 @@ function ShapeIcon({ shape }: { shape: Shape }) {
 
 export default function Home() {
   const [mode, setMode] = useState<ViewMode>("2D");
+  const [scaleMode, setScaleMode] = useState<ScaleMode>("schematic");
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
@@ -108,14 +117,23 @@ export default function Home() {
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const panStateRef = useRef<PanState | null>(null);
+  const schematicViewRef = useRef({
+    zoom: 1,
+    viewportOffset: { x: 0, y: 0 },
+  });
 
   const selectedDrawnShape =
     drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
 
-  const selectedBounds = selectedDrawnShape
-    ? getShapeBounds(selectedDrawnShape)
+  const selectedDisplayShape = selectedDrawnShape
+    ? getDisplayShape(selectedDrawnShape)
+    : null;
+
+  const selectedBounds = selectedDisplayShape
+    ? getShapeBounds(selectedDisplayShape)
     : null;
 
   const selectedScreenBounds = selectedBounds
@@ -144,7 +162,8 @@ export default function Home() {
     const cursorY = event.clientY - rect.top;
 
     const zoomFactor = Math.exp(-event.deltaY * 0.0015);
-    const nextZoom = Math.min(8, Math.max(0.25, zoom * zoomFactor));
+    const minZoom = scaleMode === "to-scale" ? 0.000001 : 0.25;
+    const nextZoom = Math.min(8, Math.max(minZoom, zoom * zoomFactor));
 
     if (nextZoom === zoom) return;
 
@@ -206,7 +225,7 @@ export default function Home() {
     };
   }
 
-  function getShapeBounds(shape: DrawnShape) {
+  function getShapeBounds(shape: DrawnShape | DraftShape) {
     const dx = shape.endX - shape.startX;
     const dy = shape.endY - shape.startY;
 
@@ -229,17 +248,145 @@ export default function Home() {
     };
   }
 
-  function pixelsToUnit(pixels: number, unit: LengthUnit) {
-    const meters = pixels / PIXELS_PER_METER;
-    return meters / metersPerUnit[unit];
+  function metersToPixels(meters: number) {
+    return meters * PIXELS_PER_METER;
   }
 
-  function unitToPixels(value: number, unit: LengthUnit) {
-    return value * metersPerUnit[unit] * PIXELS_PER_METER;
+  function getToScaleShape(shape: DrawnShape): DrawnShape {
+    const dx = shape.endX - shape.startX;
+    const dy = shape.endY - shape.startY;
+
+    if (shape.shape === "Line") {
+      const currentLength = Math.hypot(dx, dy);
+      const targetLength = metersToPixels(shape.measurements.lengthMeters);
+
+      if (currentLength === 0) {
+        return {
+          ...shape,
+          endX: shape.startX + targetLength,
+          endY: shape.startY,
+        };
+      }
+
+      const scale = targetLength / currentLength;
+
+      return {
+        ...shape,
+        endX: shape.startX + dx * scale,
+        endY: shape.startY + dy * scale,
+      };
+    }
+
+    const xDirection = dx < 0 ? -1 : 1;
+    const yDirection = dy < 0 ? -1 : 1;
+    const width = metersToPixels(shape.measurements.widthMeters);
+    const height = metersToPixels(shape.measurements.heightMeters);
+
+    if (shape.shape === "Square" || shape.shape === "Circle") {
+      const size = Math.max(width, height);
+
+      return {
+        ...shape,
+        endX: shape.startX + xDirection * size,
+        endY: shape.startY + yDirection * size,
+      };
+    }
+
+    return {
+      ...shape,
+      endX: shape.startX + xDirection * width,
+      endY: shape.startY + yDirection * height,
+    };
   }
 
-  function formatDimensionValue(pixels: number) {
-    const value = pixelsToUnit(pixels, dimensionUnit);
+  function getDisplayShape(shape: DrawnShape) {
+    return scaleMode === "to-scale" ? getToScaleShape(shape) : shape;
+  }
+
+  function fitToScaleView(shapes = drawnShapes) {
+    const canvas = canvasRef.current;
+
+    if (!canvas || shapes.length === 0) return;
+
+    const bounds = shapes.map((shape) =>
+      getShapeBounds(getToScaleShape(shape)),
+    );
+
+    const minX = Math.min(...bounds.map((bound) => bound.x));
+    const minY = Math.min(...bounds.map((bound) => bound.y));
+    const maxX = Math.max(
+      ...bounds.map((bound) => bound.x + bound.width),
+    );
+    const maxY = Math.max(
+      ...bounds.map((bound) => bound.y + bound.height),
+    );
+
+    const worldWidth = Math.max(maxX - minX, 1);
+    const worldHeight = Math.max(maxY - minY, 1);
+
+    const rect = canvas.getBoundingClientRect();
+    const leftInset = rect.width <= 640 ? 246 : 286;
+    const rightInset = 32;
+    const topInset = 112;
+    const bottomInset = 48;
+
+    const availableWidth = Math.max(
+      120,
+      rect.width - leftInset - rightInset,
+    );
+    const availableHeight = Math.max(
+      120,
+      rect.height - topInset - bottomInset,
+    );
+
+    const nextZoom = Math.min(
+      8,
+      Math.max(
+        0.000001,
+        Math.min(
+          availableWidth / worldWidth,
+          availableHeight / worldHeight,
+        ),
+      ),
+    );
+
+    const screenCenterX = leftInset + availableWidth / 2;
+    const screenCenterY = topInset + availableHeight / 2;
+    const worldCenterX = (minX + maxX) / 2;
+    const worldCenterY = (minY + maxY) / 2;
+
+    setZoom(nextZoom);
+    setViewportOffset({
+      x: screenCenterX - worldCenterX * nextZoom,
+      y: screenCenterY - worldCenterY * nextZoom,
+    });
+  }
+
+  function handleScaleModeChange(nextMode: ScaleMode) {
+    if (nextMode === scaleMode) return;
+
+    setMeasurementDrafts({});
+
+    if (nextMode === "to-scale") {
+      schematicViewRef.current = {
+        zoom,
+        viewportOffset: { ...viewportOffset },
+      };
+
+      setScaleMode(nextMode);
+      requestAnimationFrame(() => fitToScaleView(drawnShapes));
+      return;
+    }
+
+    setScaleMode(nextMode);
+    setZoom(schematicViewRef.current.zoom);
+    setViewportOffset({
+      ...schematicViewRef.current.viewportOffset,
+    });
+  }
+
+  function formatDimensionValue(meters: number) {
+    const value = meters / metersPerUnit[dimensionUnit];
     const absoluteValue = Math.abs(value);
 
     let decimals = 3;
@@ -267,53 +414,51 @@ export default function Home() {
 
     if (!Number.isFinite(enteredValue) || enteredValue <= 0) return;
 
-    const value = unitToPixels(enteredValue, dimensionUnit);
+    const enteredMeters = enteredValue * metersPerUnit[dimensionUnit];
 
-    setDrawnShapes((current) =>
-      current.map((shape) => {
-        if (shape.id !== id) return shape;
+    const nextShapes = drawnShapes.map((shape) => {
+      if (shape.id !== id) return shape;
 
-        const dx = shape.endX - shape.startX;
-        const dy = shape.endY - shape.startY;
-
-        if (shape.shape === "Line" && dimension === "length") {
-          const currentLength = Math.hypot(dx, dy);
-
-          if (currentLength === 0) return shape;
-
-          const scale = value / currentLength;
-
-          return {
-            ...shape,
-            endX: shape.startX + dx * scale,
-            endY: shape.startY + dy * scale,
-          };
-        }
-
-        const xDirection = dx < 0 ? -1 : 1;
-        const yDirection = dy < 0 ? -1 : 1;
-
-        if (shape.shape === "Square" || shape.shape === "Circle") {
-          return {
-            ...shape,
-            endX: shape.startX + xDirection * value,
-            endY: shape.startY + yDirection * value,
-          };
-        }
-
+      if (shape.shape === "Line" && dimension === "length") {
         return {
           ...shape,
-          endX:
-            dimension === "width"
-              ? shape.startX + xDirection * value
-              : shape.endX,
-          endY:
-            dimension === "height"
-              ? shape.startY + yDirection * value
-              : shape.endY,
+          measurements: {
+            ...shape.measurements,
+            lengthMeters: enteredMeters,
+          },
         };
-      }),
-    );
+      }
+
+      if (shape.shape === "Square" || shape.shape === "Circle") {
+        return {
+          ...shape,
+          measurements: {
+            ...shape.measurements,
+            widthMeters: enteredMeters,
+            heightMeters: enteredMeters,
+          },
+        };
+      }
+
+      return {
+        ...shape,
+        measurements: {
+          ...shape.measurements,
+          ...(dimension === "width"
+            ? { widthMeters: enteredMeters }
+            : {}),
+          ...(dimension === "height"
+            ? { heightMeters: enteredMeters }
+            : {}),
+        },
+      };
+    });
+
+    setDrawnShapes(nextShapes);
+
+    if (scaleMode === "to-scale") {
+      requestAnimationFrame(() => fitToScaleView(nextShapes));
+    }
   }
 
   function clearMeasurementDraft(key: string) {
@@ -329,14 +474,14 @@ export default function Home() {
   function renderMeasurementEditor(
     shape: DrawnShape,
     dimension: MeasurementDimension,
-    pixels: number,
+    meters: number,
     className: string,
     style: CSSProperties,
     key: string,
   ) {
     const draftKey = `${shape.id}:${dimension}`;
     const value =
-      measurementDrafts[draftKey] ?? formatDimensionValue(pixels);
+      measurementDrafts[draftKey] ?? formatDimensionValue(meters);
 
     return (
       <label
@@ -407,22 +552,20 @@ export default function Home() {
   }
 
   function renderShapeMeasurements(shape: DrawnShape) {
-    if (shape.shape === "Line") {
-      const deltaX = shape.endX - shape.startX;
-      const deltaY = shape.endY - shape.startY;
-      const length = Math.hypot(deltaX, deltaY);
+    const displayShape = getDisplayShape(shape);
 
+    if (shape.shape === "Line") {
       return renderMeasurementEditor(
         shape,
         "length",
-        length,
+        shape.measurements.lengthMeters,
         "shape-measurement-line",
         {
           left:
-            ((shape.startX + shape.endX) / 2) * zoom +
+            ((displayShape.startX + displayShape.endX) / 2) * zoom +
             viewportOffset.x,
           top:
-            ((shape.startY + shape.endY) / 2) * zoom +
+            ((displayShape.startY + displayShape.endY) / 2) * zoom +
             viewportOffset.y +
             12,
         },
@@ -430,14 +573,14 @@ export default function Home() {
       );
     }
 
-    const bounds = getShapeBounds(shape);
+    const bounds = getShapeBounds(displayShape);
 
     return (
       <div key={`measurements-${shape.id}`} className="shape-measurement-group">
         {renderMeasurementEditor(
           shape,
           "width",
-          bounds.width,
+          shape.measurements.widthMeters,
           "shape-measurement-horizontal",
           {
             left:
@@ -454,7 +597,7 @@ export default function Home() {
         {renderMeasurementEditor(
           shape,
           "height",
-          bounds.height,
+          shape.measurements.heightMeters,
           "shape-measurement-vertical",
           {
             left:
@@ -474,11 +617,22 @@ export default function Home() {
   function deleteSelectedShape() {
     if (selectedShapeId === null) return;
 
-    setDrawnShapes((current) =>
-      current.filter((shape) => shape.id !== selectedShapeId),
+    const nextShapes = drawnShapes.filter(
+      (shape) => shape.id !== selectedShapeId,
     );
+
+    setDrawnShapes(nextShapes);
     setMeasurementDrafts({});
     setSelectedShapeId(null);
+
+    if (scaleMode === "to-scale") {
+      if (nextShapes.length > 0) {
+        requestAnimationFrame(() => fitToScaleView(nextShapes));
+      } else {
+        setZoom(1);
+        setViewportOffset({ x: 0, y: 0 });
+      }
+    }
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
@@ -565,18 +719,36 @@ export default function Home() {
 
     const point = getCanvasPoint(event);
 
-    const finishedShape: DrawnShape = {
+    const geometry: DraftShape = {
       ...draftShape,
-      id: Date.now(),
       endX: point.x,
       endY: point.y,
     };
 
-    const width = Math.abs(finishedShape.endX - finishedShape.startX);
-    const height = Math.abs(finishedShape.endY - finishedShape.startY);
+    const bounds = getShapeBounds(geometry);
+    const lineLength = Math.hypot(
+      geometry.endX - geometry.startX,
+      geometry.endY - geometry.startY,
+    );
 
-    if (width > 3 || height > 3) {
-      setDrawnShapes((current) => [...current, finishedShape]);
+    const finishedShape: DrawnShape = {
+      ...geometry,
+      id: Date.now(),
+      measurements: {
+        widthMeters: bounds.width / PIXELS_PER_METER,
+        heightMeters: bounds.height / PIXELS_PER_METER,
+        lengthMeters: lineLength / PIXELS_PER_METER,
+      },
+    };
+
+    if (bounds.width > 3 || bounds.height > 3) {
+      const nextShapes = [...drawnShapes, finishedShape];
+
+      setDrawnShapes(nextShapes);
+
+      if (scaleMode === "to-scale") {
+        requestAnimationFrame(() => fitToScaleView(nextShapes));
+      }
     }
 
     setDraftShape(null);
@@ -701,6 +873,7 @@ export default function Home() {
   return (
     <main className="editor-shell">
       <section
+        ref={canvasRef}
         className={`canvas ${selectedShape ? "has-active-tool" : ""}`}
         aria-label={`${mode} drawing canvas`}
         onWheel={handleWheel}
@@ -736,7 +909,7 @@ export default function Home() {
             transform={`translate(${viewportOffset.x} ${viewportOffset.y}) scale(${zoom})`}
           >
             {drawnShapes.map((shape) =>
-              renderShape(shape, shape.id, true),
+              renderShape(getDisplayShape(shape), shape.id, true),
             )}
 
             {draftShape && (
@@ -841,7 +1014,38 @@ export default function Home() {
             {option}
           </button>
         ))}
-        <span className={`mode-thumb ${mode === "3D" ? "is-3d" : ""}`} aria-hidden="true" />
+        <span
+          className={`mode-thumb ${mode === "3D" ? "is-3d" : ""}`}
+          aria-hidden="true"
+        />
+      </div>
+
+      <div className="scale-switch" aria-label="Drawing scale">
+        {(["schematic", "to-scale"] as ScaleMode[]).map((option) => (
+          <button
+            type="button"
+            key={option}
+            className={scaleMode === option ? "is-active" : ""}
+            aria-pressed={scaleMode === option}
+            onClick={() => handleScaleModeChange(option)}
+          >
+            {option === "schematic" ? "Schematic" : "To scale"}
+          </button>
+        ))}
+        <span
+          className={`scale-thumb ${
+            scaleMode === "to-scale" ? "is-to-scale" : ""
+          }`}
+          aria-hidden="true"
+        />
+      </div>
+
+      <div
+        className={`scale-status ${
+          scaleMode === "to-scale" ? "is-to-scale" : ""
+        }`}
+      >
+        {scaleMode === "schematic" ? "Not to scale" : "True proportions"}
       </div>
     </main>
   );
