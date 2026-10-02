@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type {
+  CSSProperties,
   PointerEvent as ReactPointerEvent,
   WheelEvent as ReactWheelEvent,
 } from "react";
@@ -34,6 +35,7 @@ type PanState = {
 };
 
 type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
+type MeasurementDimension = "width" | "height" | "length";
 
 const PIXELS_PER_METER = 100;
 
@@ -48,19 +50,16 @@ const metersPerUnit: Record<LengthUnit, number> = {
   ft: 0.3048,
 };
 
-const lengthUnitNames: Record<
-  LengthUnit,
-  { singular: string; plural: string }
-> = {
-  km: { singular: "kilometer", plural: "kilometers" },
-  m: { singular: "meter", plural: "meters" },
-  cm: { singular: "centimeter", plural: "centimeters" },
-  mm: { singular: "millimeter", plural: "millimeters" },
-  µm: { singular: "micrometer", plural: "micrometers" },
-  nm: { singular: "nanometer", plural: "nanometers" },
-  in: { singular: "inch", plural: "inches" },
-  ft: { singular: "foot", plural: "feet" },
-};
+const lengthUnits: { value: LengthUnit; label: string }[] = [
+  { value: "km", label: "kilometers" },
+  { value: "m", label: "meters" },
+  { value: "cm", label: "centimeters" },
+  { value: "mm", label: "millimeters" },
+  { value: "µm", label: "micrometers" },
+  { value: "nm", label: "nanometers" },
+  { value: "in", label: "inches" },
+  { value: "ft", label: "feet" },
+];
 
 const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
 
@@ -101,7 +100,7 @@ export default function Home() {
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
   const [selectedShapeId, setSelectedShapeId] = useState<number | null>(null);
-  const dimensionUnit: LengthUnit = "cm";
+  const [dimensionUnit, setDimensionUnit] = useState<LengthUnit>("cm");
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -232,6 +231,10 @@ export default function Home() {
     return meters / metersPerUnit[unit];
   }
 
+  function unitToPixels(value: number, unit: LengthUnit) {
+    return value * metersPerUnit[unit] * PIXELS_PER_METER;
+  }
+
   function formatDimensionValue(pixels: number) {
     const value = pixelsToUnit(pixels, dimensionUnit);
     const absoluteValue = Math.abs(value);
@@ -252,12 +255,116 @@ export default function Home() {
       .replace(/(\.\d*?)0+$/, "$1");
   }
 
-  function formatDimensionLabel(pixels: number) {
-    const value = pixelsToUnit(pixels, dimensionUnit);
-    const names = lengthUnitNames[dimensionUnit];
-    const unitName = Math.abs(value - 1) < 0.000001 ? names.singular : names.plural;
+  function updateShapeDimension(
+    id: number,
+    dimension: MeasurementDimension,
+    rawValue: string,
+  ) {
+    const enteredValue = Number(rawValue);
 
-    return `${formatDimensionValue(pixels)} ⋅ ${unitName}`;
+    if (!Number.isFinite(enteredValue) || enteredValue <= 0) return;
+
+    const value = unitToPixels(enteredValue, dimensionUnit);
+
+    setDrawnShapes((current) =>
+      current.map((shape) => {
+        if (shape.id !== id) return shape;
+
+        const dx = shape.endX - shape.startX;
+        const dy = shape.endY - shape.startY;
+
+        if (shape.shape === "Line" && dimension === "length") {
+          const currentLength = Math.hypot(dx, dy);
+
+          if (currentLength === 0) return shape;
+
+          const scale = value / currentLength;
+
+          return {
+            ...shape,
+            endX: shape.startX + dx * scale,
+            endY: shape.startY + dy * scale,
+          };
+        }
+
+        const xDirection = dx < 0 ? -1 : 1;
+        const yDirection = dy < 0 ? -1 : 1;
+
+        if (shape.shape === "Square" || shape.shape === "Circle") {
+          return {
+            ...shape,
+            endX: shape.startX + xDirection * value,
+            endY: shape.startY + yDirection * value,
+          };
+        }
+
+        return {
+          ...shape,
+          endX:
+            dimension === "width"
+              ? shape.startX + xDirection * value
+              : shape.endX,
+          endY:
+            dimension === "height"
+              ? shape.startY + yDirection * value
+              : shape.endY,
+        };
+      }),
+    );
+  }
+
+  function renderMeasurementEditor(
+    shape: DrawnShape,
+    dimension: MeasurementDimension,
+    pixels: number,
+    className: string,
+    style: CSSProperties,
+    key: string,
+  ) {
+    return (
+      <label
+        key={key}
+        className={`shape-measurement ${className} ${
+          selectedShapeId === shape.id ? "is-selected" : ""
+        }`}
+        style={style}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          setSelectedShape(null);
+          setSelectedShapeId(shape.id);
+        }}
+        onWheel={(event) => event.stopPropagation()}
+      >
+        <input
+          type="number"
+          min="0"
+          step="any"
+          inputMode="decimal"
+          aria-label={`Shape ${dimension}`}
+          value={formatDimensionValue(pixels)}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) =>
+            updateShapeDimension(shape.id, dimension, event.target.value)
+          }
+        />
+        <span className="shape-measurement-separator" aria-hidden="true">
+          ⋅
+        </span>
+        <select
+          aria-label="Dimension unit"
+          value={dimensionUnit}
+          onChange={(event) =>
+            setDimensionUnit(event.target.value as LengthUnit)
+          }
+        >
+          {lengthUnits.map((unit) => (
+            <option key={unit.value} value={unit.value}>
+              {unit.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
   }
 
   function renderShapeMeasurements(shape: DrawnShape) {
@@ -266,24 +373,21 @@ export default function Home() {
       const deltaY = shape.endY - shape.startY;
       const length = Math.hypot(deltaX, deltaY);
 
-      return (
-        <span
-          key={`measurements-${shape.id}`}
-          className={`shape-measurement shape-measurement-line ${
-            selectedShapeId === shape.id ? "is-selected" : ""
-          }`}
-          style={{
-            left:
-              ((shape.startX + shape.endX) / 2) * zoom +
-              viewportOffset.x,
-            top:
-              ((shape.startY + shape.endY) / 2) * zoom +
-              viewportOffset.y +
-              12,
-          }}
-        >
-          {formatDimensionLabel(length)}
-        </span>
+      return renderMeasurementEditor(
+        shape,
+        "length",
+        length,
+        "shape-measurement-line",
+        {
+          left:
+            ((shape.startX + shape.endX) / 2) * zoom +
+            viewportOffset.x,
+          top:
+            ((shape.startY + shape.endY) / 2) * zoom +
+            viewportOffset.y +
+            12,
+        },
+        `measurements-${shape.id}`,
       );
     }
 
@@ -291,11 +395,12 @@ export default function Home() {
 
     return (
       <div key={`measurements-${shape.id}`} className="shape-measurement-group">
-        <span
-          className={`shape-measurement shape-measurement-horizontal ${
-            selectedShapeId === shape.id ? "is-selected" : ""
-          }`}
-          style={{
+        {renderMeasurementEditor(
+          shape,
+          "width",
+          bounds.width,
+          "shape-measurement-horizontal",
+          {
             left:
               (bounds.x + bounds.width / 2) * zoom +
               viewportOffset.x,
@@ -303,16 +408,16 @@ export default function Home() {
               (bounds.y + bounds.height) * zoom +
               viewportOffset.y +
               10,
-          }}
-        >
-          {formatDimensionLabel(bounds.width)}
-        </span>
+          },
+          `width-${shape.id}`,
+        )}
 
-        <span
-          className={`shape-measurement shape-measurement-vertical ${
-            selectedShapeId === shape.id ? "is-selected" : ""
-          }`}
-          style={{
+        {renderMeasurementEditor(
+          shape,
+          "height",
+          bounds.height,
+          "shape-measurement-vertical",
+          {
             left:
               (bounds.x + bounds.width) * zoom +
               viewportOffset.x +
@@ -320,10 +425,9 @@ export default function Home() {
             top:
               (bounds.y + bounds.height / 2) * zoom +
               viewportOffset.y,
-          }}
-        >
-          {formatDimensionLabel(bounds.height)}
-        </span>
+          },
+          `height-${shape.id}`,
+        )}
       </div>
     );
   }
@@ -604,7 +708,7 @@ export default function Home() {
         </svg>
 
         {mode === "2D" && drawnShapes.length > 0 && (
-          <div className="shape-measurements-layer" aria-hidden="true">
+          <div className="shape-measurements-layer">
             {drawnShapes.map(renderShapeMeasurements)}
           </div>
         )}
