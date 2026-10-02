@@ -138,15 +138,35 @@ line.canvas-shape.saved-shape {
   cursor: grabbing;
 }
 
-.diagram-overlay-force .force-hit-target {
+.diagram-overlay-force .force-hit-target,
+.diagram-overlay-force .applied-load-hit-target {
   stroke: transparent;
   stroke-width: 14;
   pointer-events: stroke;
 }
 
-.diagram-overlay-force.is-selected > line:not(.force-hit-target):not(.force-rotate-guide) {
+.diagram-overlay-force.is-selected > line:not(.force-hit-target):not(.force-rotate-guide):not(.applied-load-hit-target) {
   stroke-width: 3;
   filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.18));
+}
+
+.diagram-overlay-force.applied-load.is-selectable {
+  cursor: pointer;
+}
+
+.diagram-overlay-force .applied-load-cap {
+  stroke-width: 1.5;
+  pointer-events: stroke;
+}
+
+.diagram-overlay-force .applied-load-arrow {
+  stroke-width: 1.8;
+  pointer-events: stroke;
+}
+
+.diagram-overlay-force.applied-load.is-selected .applied-load-cap,
+.diagram-overlay-force.applied-load.is-selected .applied-load-arrow {
+  filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.14));
 }
 
 .diagram-overlay-force .force-rotate-guide {
@@ -642,6 +662,16 @@ line.canvas-shape.saved-shape {
 .shape-button:hover {
   background: rgba(17, 17, 17, 0.043);
   color: var(--text);
+}
+
+.shape-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.shape-button:disabled:hover {
+  background: transparent;
+  color: #55534f;
 }
 
 .shape-button.is-active {
