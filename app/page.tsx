@@ -70,7 +70,7 @@ type DraftOverlay =
 
 type DragState = {
   id: number;
-  target: "shape" | "force";
+  target: "shape" | "force" | "force-rotate";
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
@@ -543,6 +543,26 @@ export default function Home() {
     dragStateRef.current = {
       id,
       target: "force",
+      pointerId: event.pointerId,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+    };
+  }
+
+  function handleForceRotatePointerDown(
+    event: ReactPointerEvent<SVGCircleElement>,
+    id: number,
+  ) {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    clearDrawingTools();
+    setSelectedShapeId(null);
+    setSelectedForceId(id);
+
+    dragStateRef.current = {
+      id,
+      target: "force-rotate",
       pointerId: event.pointerId,
       lastClientX: event.clientX,
       lastClientY: event.clientY,
@@ -1290,6 +1310,47 @@ export default function Home() {
     const dragState = dragStateRef.current;
 
     if (dragState && dragState.pointerId === event.pointerId) {
+      if (dragState.target === "force-rotate") {
+        const point = getCanvasPoint(event);
+
+        setOverlayItems((current) =>
+          current.map((item) => {
+            if (item.category !== "force" || item.id !== dragState.id) {
+              return item;
+            }
+
+            const forceLength = Math.max(
+              1,
+              Math.hypot(
+                item.endX - item.startX,
+                item.endY - item.startY,
+              ),
+            );
+
+            const pointerDeltaX = point.x - item.startX;
+            const pointerDeltaY = point.y - item.startY;
+            const pointerDistance = Math.hypot(
+              pointerDeltaX,
+              pointerDeltaY,
+            );
+
+            if (pointerDistance < 0.001) return item;
+
+            return {
+              ...item,
+              endX:
+                item.startX +
+                (pointerDeltaX / pointerDistance) * forceLength,
+              endY:
+                item.startY +
+                (pointerDeltaY / pointerDistance) * forceLength,
+            };
+          }),
+        );
+
+        return;
+      }
+
       const deltaX = (event.clientX - dragState.lastClientX) / zoom;
       const deltaY = (event.clientY - dragState.lastClientY) / zoom;
 
@@ -1500,6 +1561,17 @@ export default function Home() {
     if (item.category === "force") {
       const midpointX = (item.startX + item.endX) / 2;
       const midpointY = (item.startY + item.endY) / 2;
+      const forceDeltaX = item.endX - item.startX;
+      const forceDeltaY = item.endY - item.startY;
+      const forceLength = Math.max(
+        1,
+        Math.hypot(forceDeltaX, forceDeltaY),
+      );
+      const rotateHandleOffset = 18 / zoom;
+      const rotateHandleX =
+        item.endX + (forceDeltaX / forceLength) * rotateHandleOffset;
+      const rotateHandleY =
+        item.endY + (forceDeltaY / forceLength) * rotateHandleOffset;
 
       return (
         <g
@@ -1525,6 +1597,27 @@ export default function Home() {
             y2={item.endY}
             markerEnd="url(#force-arrowhead)"
           />
+
+          {isSelectedForce && "id" in item && (
+            <>
+              <line
+                className="force-rotate-guide"
+                x1={item.endX}
+                y1={item.endY}
+                x2={rotateHandleX}
+                y2={rotateHandleY}
+              />
+              <circle
+                className="force-rotate-handle"
+                cx={rotateHandleX}
+                cy={rotateHandleY}
+                r={6 / zoom}
+                onPointerDown={(event) =>
+                  handleForceRotatePointerDown(event, item.id)
+                }
+              />
+            </>
+          )}
 
           {isSelectedForce && "id" in item && (
             <foreignObject
