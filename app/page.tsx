@@ -10,7 +10,7 @@ import type {
 type ViewMode = "2D" | "3D";
 type ScaleMode = "schematic" | "to-scale";
 type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
-type ForceTool = "Applied Force" | "Weight" | "Normal" | "Friction" | "Tension";
+type ForceTool = "Applied Force" | "Applied Load";
 type SupportTool = "Pin Support" | "Roller Support" | "Fixed Support";
 type ConnectionTool = "Hinge" | "Cable" | "Spring";
 type CanvasControl = "Grid" | "Snap to grid" | "Fit all" | "Reset view";
@@ -111,13 +111,7 @@ const lengthUnits: { value: LengthUnit; label: string }[] = [
 
 const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
 
-const forceTools: ForceTool[] = [
-  "Applied Force",
-  "Weight",
-  "Normal",
-  "Friction",
-  "Tension",
-];
+const forceTools: ForceTool[] = ["Applied Force", "Applied Load"];
 
 const supportTools: SupportTool[] = [
   "Pin Support",
@@ -129,10 +123,7 @@ const connectionTools: ConnectionTool[] = ["Hinge", "Cable", "Spring"];
 
 const forceLabels: Record<ForceTool, string> = {
   "Applied Force": "F",
-  Weight: "W",
-  Normal: "N",
-  Friction: "f",
-  Tension: "T",
+  "Applied Load": "M",
 };
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -184,28 +175,10 @@ function ToolIcon({ tool }: { tool: SidebarTool }) {
           <path d="m15 8 4 4-4 4" {...common} />
         </>
       )}
-      {tool === "Weight" && (
+      {tool === "Applied Load" && (
         <>
-          <path d="M12 4v15" {...common} />
-          <path d="m8 15 4 4 4-4" {...common} />
-        </>
-      )}
-      {tool === "Normal" && (
-        <>
-          <path d="M12 20V5" {...common} />
-          <path d="m8 9 4-4 4 4" {...common} />
-        </>
-      )}
-      {tool === "Friction" && (
-        <>
-          <path d="M20 12H5" {...common} />
-          <path d="m9 8-4 4 4 4" {...common} />
-        </>
-      )}
-      {tool === "Tension" && (
-        <>
-          <path d="M5 19 18 6" {...common} />
-          <path d="m13 6h5v5" {...common} />
+          <path d="M7 7.5a7 7 0 1 1-1 9" {...common} />
+          <path d="m3.5 13.5 2.5 3 3-2.5" {...common} />
         </>
       )}
       {tool === "Pin Support" && (
@@ -474,7 +447,10 @@ export default function Home() {
         category: "force",
         kind: selectedForceTool,
         name: forceLabels[selectedForceTool],
-        magnitude: 100,
+        magnitude:
+          selectedForceTool === "Applied Load"
+            ? 100 * metersPerUnit[dimensionUnit]
+            : 100,
         startX: point.x,
         startY: point.y,
         endX: point.x,
@@ -1270,7 +1246,13 @@ export default function Home() {
     setOverlayItems((current) =>
       current.map((item) =>
         item.category === "force" && item.id === id
-          ? { ...item, magnitude }
+          ? {
+              ...item,
+              magnitude:
+                item.kind === "Applied Load"
+                  ? magnitude * metersPerUnit[dimensionUnit]
+                  : magnitude,
+            }
           : item,
       ),
     );
@@ -1651,13 +1633,21 @@ export default function Home() {
                     min="0"
                     step="any"
                     aria-label="Force magnitude"
-                    value={item.magnitude}
+                    value={
+                      item.kind === "Applied Load"
+                        ? formatDimensionValue(item.magnitude)
+                        : item.magnitude
+                    }
                     onFocus={(event) => event.currentTarget.select()}
                     onChange={(event) =>
                       updateForceMagnitude(item.id, event.currentTarget.value)
                     }
                   />
-                  <span>N</span>
+                  <span>
+                    {item.kind === "Applied Load"
+                      ? `N·${dimensionUnit}`
+                      : "N"}
+                  </span>
                 </label>
 
                 <span className="force-inline-separator" aria-hidden="true" />
@@ -1681,7 +1671,13 @@ export default function Home() {
 
           {!isSelectedForce && (
             <text x={midpointX + 8} y={midpointY - 8}>
-              {item.name} = {item.magnitude} N
+              {item.name} ={" "}
+              {item.kind === "Applied Load"
+                ? formatDimensionValue(item.magnitude)
+                : item.magnitude}{" "}
+              {item.kind === "Applied Load"
+                ? `N·${dimensionUnit}`
+                : "N"}
             </text>
           )}
         </g>
