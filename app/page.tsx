@@ -84,6 +84,7 @@ function ShapeIcon({ shape }: { shape: Shape }) {
   );
 }
 
+export default function Home() {
   const [mode, setMode] = useState<ViewMode>("2D");
   const [shapesOpen, setShapesOpen] = useState(true);
   const [selectedShape, setSelectedShape] = useState<Shape | null>(null);
