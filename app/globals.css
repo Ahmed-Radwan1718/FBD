@@ -471,83 +471,75 @@ line.canvas-shape.saved-shape {
 }
 
 .force-inline-editor {
-  position: relative;
   width: 100%;
+  height: 34px;
   box-sizing: border-box;
-  padding: 7px 8px;
-  border: 1px solid rgba(17, 17, 17, 0.18);
-  border-radius: 9px;
+  padding: 3px 7px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  border-radius: 7px;
   background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 3px 12px rgba(17, 17, 17, 0.12);
-  display: grid;
-  grid-template-columns: minmax(72px, 1fr) 78px 70px;
+  box-shadow: 0 2px 7px rgba(17, 17, 17, 0.1);
+  display: flex;
+  align-items: center;
   gap: 6px;
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.force-inline-editor::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -5px;
-  width: 9px;
-  height: 9px;
-  border-right: 1px solid rgba(17, 17, 17, 0.18);
-  border-bottom: 1px solid rgba(17, 17, 17, 0.18);
-  background: #ffffff;
-  transform: translateX(-50%) rotate(45deg);
+.force-inline-editor input {
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #171717;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
 }
 
-.force-property-field {
+.force-inline-editor input::-webkit-inner-spin-button,
+.force-inline-editor input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.force-inline-name {
+  width: 28px;
+  text-align: center;
+}
+
+.force-inline-value {
   min-width: 0;
-  display: grid;
+  display: flex;
+  align-items: center;
   gap: 3px;
 }
 
-.force-property-field > span {
-  color: var(--muted);
-  font-size: 8px;
-  font-weight: 750;
-  line-height: 1;
+.force-inline-value input {
+  width: 47px;
+  text-align: right;
 }
 
-.force-property-field input {
-  width: 100%;
-  min-width: 0;
-  height: 25px;
-  box-sizing: border-box;
-  padding: 0 6px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  outline: 0;
-  background: #ffffff;
-  color: var(--text);
+.force-inline-value span {
+  color: #77746e;
   font-size: 10px;
-  font-weight: 650;
-}
-
-.force-property-field input:focus {
-  border-color: rgba(17, 17, 17, 0.48);
-}
-
-.force-property-number {
-  position: relative;
-  min-width: 0;
-}
-
-.force-property-number input {
-  padding-right: 20px;
-}
-
-.force-property-number > span {
-  position: absolute;
-  top: 50%;
-  right: 6px;
-  color: var(--muted);
-  font-size: 9px;
   font-weight: 700;
   pointer-events: none;
-  transform: translateY(-50%);
+}
+
+.force-inline-separator {
+  width: 1px;
+  height: 16px;
+  flex: 0 0 1px;
+  background: rgba(17, 17, 17, 0.12);
+}
+
+.force-inline-editor input:focus {
+  background: rgba(17, 17, 17, 0.045);
+  border-radius: 4px;
 }
 
 .tool-section {
