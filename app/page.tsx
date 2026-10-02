@@ -27,6 +27,12 @@ type DragState = {
   lastClientY: number;
 };
 
+type PanState = {
+  pointerId: number;
+  lastClientX: number;
+  lastClientY: number;
+};
+
 type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
 
 const PIXELS_PER_METER = 100;
@@ -98,6 +104,7 @@ export default function Home() {
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const dragStateRef = useRef<DragState | null>(null);
+  const panStateRef = useRef<PanState | null>(null);
 
   const selectedDrawnShape =
     drawnShapes.find((shape) => shape.id === selectedShapeId) ?? null;
@@ -152,8 +159,18 @@ export default function Home() {
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (event.button !== 0) return;
+
     if (!selectedShape) {
       setSelectedShapeId(null);
+      event.currentTarget.setPointerCapture(event.pointerId);
+
+      panStateRef.current = {
+        pointerId: event.pointerId,
+        lastClientX: event.clientX,
+        lastClientY: event.clientY,
+      };
+
       return;
     }
 
@@ -343,6 +360,28 @@ export default function Home() {
       return;
     }
 
+    const panState = panStateRef.current;
+
+    if (panState && panState.pointerId === event.pointerId) {
+      const deltaX = event.clientX - panState.lastClientX;
+      const deltaY = event.clientY - panState.lastClientY;
+
+      if (deltaX !== 0 || deltaY !== 0) {
+        setViewportOffset((current) => ({
+          x: current.x + deltaX,
+          y: current.y + deltaY,
+        }));
+
+        panStateRef.current = {
+          pointerId: panState.pointerId,
+          lastClientX: event.clientX,
+          lastClientY: event.clientY,
+        };
+      }
+
+      return;
+    }
+
     if (!draftShape) return;
 
     const point = getCanvasPoint(event);
@@ -361,6 +400,11 @@ export default function Home() {
   function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
     if (dragStateRef.current?.pointerId === event.pointerId) {
       dragStateRef.current = null;
+      return;
+    }
+
+    if (panStateRef.current?.pointerId === event.pointerId) {
+      panStateRef.current = null;
       return;
     }
 
@@ -512,6 +556,7 @@ export default function Home() {
         onPointerUp={handlePointerUp}
         onPointerCancel={() => {
           dragStateRef.current = null;
+          panStateRef.current = null;
           setDraftShape(null);
         }}
       >
