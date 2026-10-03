@@ -82,6 +82,7 @@ type DragState = {
   originEndX?: number;
   originEndY?: number;
   snappedSupportId?: number;
+  snappedShapeId?: number;
 };
 
 type PanState = {
@@ -598,6 +599,11 @@ export default function Home() {
     setSelectedForceId(null);
     event.currentTarget.setPointerCapture(event.pointerId);
 
+    const attachedShape = getBestShapeSnapForSupport(
+      supportItem,
+      SUPPORT_CONTACT_EPSILON_PX / zoom,
+    );
+
     dragStateRef.current = {
       id,
       target: "support",
@@ -610,6 +616,7 @@ export default function Home() {
       originStartY: supportItem.startY,
       originEndX: supportItem.endX,
       originEndY: supportItem.endY,
+      snappedShapeId: attachedShape?.shape.id,
     };
   }
 
@@ -939,6 +946,36 @@ export default function Home() {
 
       if (!bestMatch || match.distance < bestMatch.distance) {
         bestMatch = match;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  function getBestShapeSnapForSupport(
+    support: SupportItem,
+    maxDistance: number,
+  ) {
+    let bestMatch:
+      | (NonNullable<ReturnType<typeof getSupportSnapForShape>> & {
+          shape: DrawnShape;
+        })
+      | null = null;
+
+    for (const shape of drawnShapes) {
+      const match = getSupportSnapForShape(
+        shape,
+        support,
+        maxDistance,
+      );
+
+      if (!match) continue;
+
+      if (!bestMatch || match.distance < bestMatch.distance) {
+        bestMatch = {
+          ...match,
+          shape,
+        };
       }
     }
 
@@ -2283,24 +2320,91 @@ export default function Home() {
         dragState.originEndX !== undefined &&
         dragState.originEndY !== undefined
       ) {
+        const currentSupport = overlayItems.find(
+          (item) =>
+            item.category === "support" && item.id === dragState.id,
+        );
+
+        if (!currentSupport || currentSupport.category !== "support") {
+          return;
+        }
+
         const totalDeltaX =
           (event.clientX - dragState.originClientX) / zoom;
         const totalDeltaY =
           (event.clientY - dragState.originClientY) / zoom;
-
-        setOverlayItems((current) =>
-          current.map((item) =>
-            item.category === "support" && item.id === dragState.id
-              ? {
-                  ...item,
-                  startX: dragState.originStartX! + totalDeltaX,
-                  startY: dragState.originStartY! + totalDeltaY,
-                  endX: dragState.originEndX! + totalDeltaX,
-                  endY: dragState.originEndY! + totalDeltaY,
-                }
-              : item,
-          ),
+        const pointerTravel = Math.hypot(
+          event.clientX - dragState.originClientX,
+          event.clientY - dragState.originClientY,
         );
+
+        let nextSupport: SupportItem;
+
+        if (
+          dragState.snappedShapeId !== undefined &&
+          pointerTravel < SUPPORT_SNAP_RELEASE_PX
+        ) {
+          nextSupport = {
+            ...currentSupport,
+          };
+        } else {
+          const proposedSupport: SupportItem = {
+            ...currentSupport,
+            startX: dragState.originStartX + totalDeltaX,
+            startY: dragState.originStartY + totalDeltaY,
+            endX: dragState.originEndX + totalDeltaX,
+            endY: dragState.originEndY + totalDeltaY,
+          };
+          const shapeSnap = getBestShapeSnapForSupport(
+            proposedSupport,
+            SUPPORT_SNAP_DISTANCE_PX / zoom,
+          );
+
+          if (shapeSnap) {
+            nextSupport = {
+              ...proposedSupport,
+              startX: proposedSupport.startX - shapeSnap.offsetX,
+              startY: proposedSupport.startY - shapeSnap.offsetY,
+              endX: proposedSupport.endX - shapeSnap.offsetX,
+              endY: proposedSupport.endY - shapeSnap.offsetY,
+            };
+
+            dragStateRef.current = {
+              ...dragState,
+              lastClientX: event.clientX,
+              lastClientY: event.clientY,
+              originClientX: event.clientX,
+              originClientY: event.clientY,
+              originStartX: nextSupport.startX,
+              originStartY: nextSupport.startY,
+              originEndX: nextSupport.endX,
+              originEndY: nextSupport.endY,
+              snappedShapeId: shapeSnap.shape.id,
+            };
+          } else {
+            nextSupport = proposedSupport;
+
+            if (dragState.snappedShapeId !== undefined) {
+              dragStateRef.current = {
+                ...dragState,
+                snappedShapeId: undefined,
+              };
+            }
+          }
+        }
+
+        if (
+          nextSupport.startX !== currentSupport.startX ||
+          nextSupport.startY !== currentSupport.startY
+        ) {
+          setOverlayItems((current) =>
+            current.map((item) =>
+              item.category === "support" && item.id === dragState.id
+                ? nextSupport
+                : item,
+            ),
+          );
+        }
 
         return;
       }
