@@ -288,6 +288,7 @@ export default function Home() {
 
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [orthogonalForces, setOrthogonalForces] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
 
@@ -877,13 +878,28 @@ export default function Home() {
     );
   }
 
+  function getAppliedForcePointerPoint(
+    origin: { x: number; y: number },
+    point: { x: number; y: number },
+  ) {
+    if (!orthogonalForces) return point;
+
+    const deltaX = point.x - origin.x;
+    const deltaY = point.y - origin.y;
+
+    return Math.abs(deltaX) >= Math.abs(deltaY)
+      ? { x: point.x, y: origin.y }
+      : { x: origin.x, y: point.y };
+  }
+
   function buildAppliedForceDraftFromPointer(
     force: Omit<ForceItem, "id">,
     origin: { x: number; y: number },
     point: { x: number; y: number },
   ) {
-    const deltaX = point.x - origin.x;
-    const deltaY = point.y - origin.y;
+    const constrainedPoint = getAppliedForcePointerPoint(origin, point);
+    const deltaX = constrainedPoint.x - origin.x;
+    const deltaY = constrainedPoint.y - origin.y;
     const length = Math.hypot(deltaX, deltaY);
 
     const rawForce: ForceItem = {
@@ -892,8 +908,8 @@ export default function Home() {
       shapeId: undefined,
       startX: origin.x,
       startY: origin.y,
-      endX: point.x,
-      endY: point.y,
+      endX: constrainedPoint.x,
+      endY: constrainedPoint.y,
     };
 
     if (length < 0.001) return rawForce;
@@ -910,11 +926,11 @@ export default function Home() {
     for (const shape of drawnShapes) {
       const snapPoint = getShapeSnapPoint(
         getDisplayShape(shape),
-        point,
+        constrainedPoint,
       );
       const distance = Math.hypot(
-        point.x - snapPoint.x,
-        point.y - snapPoint.y,
+        constrainedPoint.x - snapPoint.x,
+        constrainedPoint.y - snapPoint.y,
       );
 
       if (distance > acquireDistance) continue;
@@ -941,6 +957,26 @@ export default function Home() {
     }
 
     if (!bestMatch) return rawForce;
+
+    if (orthogonalForces) {
+      const isHorizontal = Math.abs(deltaX) >= Math.abs(deltaY);
+      const direction = isHorizontal
+        ? Math.sign(deltaX) || 1
+        : Math.sign(deltaY) || 1;
+
+      return {
+        ...rawForce,
+        shapeId: bestMatch.shapeId,
+        startX: isHorizontal
+          ? bestMatch.point.x - direction * length
+          : bestMatch.point.x,
+        startY: isHorizontal
+          ? bestMatch.point.y
+          : bestMatch.point.y - direction * length,
+        endX: bestMatch.point.x,
+        endY: bestMatch.point.y,
+      };
+    }
 
     return {
       ...rawForce,
@@ -1803,7 +1839,11 @@ export default function Home() {
 
     const normalizedAngle =
       ((enteredAngle % 360) + 360) % 360;
-    const radians = normalizedAngle * (Math.PI / 180);
+    const appliedAngle =
+      orthogonalForces
+        ? (Math.round(normalizedAngle / 90) * 90) % 360
+        : normalizedAngle;
+    const radians = appliedAngle * (Math.PI / 180);
 
     setOverlayItems((current) =>
       current.map((item) => {
@@ -2721,6 +2761,26 @@ export default function Home() {
                   );
                 })}
               </div>
+
+              <button
+                className="force-mode-toggle"
+                type="button"
+                role="switch"
+                aria-checked={orthogonalForces}
+                onClick={() =>
+                  setOrthogonalForces((current) => !current)
+                }
+              >
+                <span>Orthogonal</span>
+                <span
+                  className={`force-mode-switch ${
+                    orthogonalForces ? "is-on" : ""
+                  }`}
+                  aria-hidden="true"
+                >
+                  <span />
+                </span>
+              </button>
 
               {selectedForceItem?.kind === "Applied Force" && (
                 <div
