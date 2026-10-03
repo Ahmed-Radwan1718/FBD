@@ -298,7 +298,31 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-horizontal .shape-measurement-guide {
-  display: none;
+  display: block;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 1px;
+  transform: translateY(-50%);
+  background: transparent;
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::before,
+.shape-measurement-horizontal .shape-measurement-guide::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 7px;
+  background: rgba(17, 17, 17, 0.38);
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::before {
+  left: 0;
+}
+
+.shape-measurement-horizontal .shape-measurement-guide::after {
+  right: 0;
 }
 
 .shape-measurement-horizontal .shape-measurement-display,
@@ -359,7 +383,31 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-vertical .shape-measurement-guide {
-  display: none;
+  display: block;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  transform: translateX(-50%);
+  background: transparent;
+}
+
+.shape-measurement-vertical .shape-measurement-guide::before,
+.shape-measurement-vertical .shape-measurement-guide::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  width: 7px;
+  height: 1px;
+  background: rgba(17, 17, 17, 0.38);
+}
+
+.shape-measurement-vertical .shape-measurement-guide::before {
+  top: 0;
+}
+
+.shape-measurement-vertical .shape-measurement-guide::after {
+  bottom: 0;
 }
 
 .shape-measurement-vertical .shape-measurement-display,
