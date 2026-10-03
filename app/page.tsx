@@ -877,7 +877,7 @@ export default function Home() {
     );
   }
 
-  function buildAppliedForceFromPointer(
+  function buildAppliedForceDraftFromPointer(
     force: Omit<ForceItem, "id">,
     origin: { x: number; y: number },
     point: { x: number; y: number },
@@ -886,31 +886,90 @@ export default function Home() {
     const deltaY = point.y - origin.y;
     const length = Math.hypot(deltaX, deltaY);
 
-    if (length < 0.001) {
-      return {
-        ...force,
-        id: -1,
-        shapeId: undefined,
-        startX: origin.x,
-        startY: origin.y,
-        endX: origin.x,
-        endY: origin.y,
-      };
-    }
-
-    const directionX = deltaX / length;
-    const directionY = deltaY / length;
     const rawForce: ForceItem = {
       ...force,
       id: -1,
       shapeId: undefined,
       startX: origin.x,
       startY: origin.y,
-      endX: origin.x + directionX * APPLIED_FORCE_LENGTH,
-      endY: origin.y + directionY * APPLIED_FORCE_LENGTH,
+      endX: point.x,
+      endY: point.y,
     };
 
-    return snapAppliedForceToShape(rawForce);
+    if (length < 0.001) return rawForce;
+
+    const acquireDistance = FORCE_SNAP_DISTANCE_PX / zoom;
+    let bestMatch:
+      | {
+          shapeId: number;
+          point: { x: number; y: number };
+          distance: number;
+        }
+      | null = null;
+
+    for (const shape of drawnShapes) {
+      const snapPoint = getShapeSnapPoint(
+        getDisplayShape(shape),
+        point,
+      );
+      const distance = Math.hypot(
+        point.x - snapPoint.x,
+        point.y - snapPoint.y,
+      );
+
+      if (distance > acquireDistance) continue;
+
+      const toShapeX = snapPoint.x - origin.x;
+      const toShapeY = snapPoint.y - origin.y;
+      const toShapeLength = Math.max(
+        0.001,
+        Math.hypot(toShapeX, toShapeY),
+      );
+      const alignment =
+        (deltaX * toShapeX + deltaY * toShapeY) /
+        (length * toShapeLength);
+
+      if (alignment < 0.72) continue;
+
+      if (!bestMatch || distance < bestMatch.distance) {
+        bestMatch = {
+          shapeId: shape.id,
+          point: snapPoint,
+          distance,
+        };
+      }
+    }
+
+    if (!bestMatch) return rawForce;
+
+    return {
+      ...rawForce,
+      shapeId: bestMatch.shapeId,
+      endX: bestMatch.point.x,
+      endY: bestMatch.point.y,
+    };
+  }
+
+  function finalizeAppliedForceFromPointer(
+    force: Omit<ForceItem, "id">,
+    origin: { x: number; y: number },
+    point: { x: number; y: number },
+  ) {
+    const draftForce = buildAppliedForceDraftFromPointer(
+      force,
+      origin,
+      point,
+    );
+
+    if (draftForce.shapeId !== undefined) {
+      return attachForceToShape(
+        draftForce,
+        draftForce.shapeId,
+        { x: draftForce.endX, y: draftForce.endY },
+      );
+    }
+
+    return normalizeAppliedForceLength(draftForce);
   }
 
   function metersToPixels(meters: number) {
@@ -1917,14 +1976,14 @@ export default function Home() {
 
         if (pointerDistance < 1 / zoom) return current;
 
-        const snappedForce = buildAppliedForceFromPointer(
+        const previewForce = buildAppliedForceDraftFromPointer(
           current,
           origin,
           point,
         );
-        const { id: _temporaryId, ...snappedDraft } = snappedForce;
+        const { id: _temporaryId, ...previewDraft } = previewForce;
 
-        return snappedDraft;
+        return previewDraft;
       });
 
       return;
@@ -1980,7 +2039,7 @@ export default function Home() {
 
         if (drawDistance > 3 / zoom) {
           overlayToAdd = {
-            ...buildAppliedForceFromPointer(
+            ...finalizeAppliedForceFromPointer(
               draftOverlay,
               origin,
               point,
