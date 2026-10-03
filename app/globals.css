@@ -166,12 +166,14 @@ line.canvas-shape.saved-shape {
   pointer-events: none;
 }
 
-.diagram-overlay-force.is-selectable {
+.diagram-overlay-force.is-selectable,
+.diagram-overlay-support.is-selectable {
   pointer-events: all;
   cursor: grab;
 }
 
-.diagram-overlay-force.is-selectable:active {
+.diagram-overlay-force.is-selectable:active,
+.diagram-overlay-support.is-selectable:active {
   cursor: grabbing;
 }
 
