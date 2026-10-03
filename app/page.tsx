@@ -1758,14 +1758,19 @@ export default function Home() {
           >
             <input
               autoFocus
-              type="number"
-              min="0"
-              step="any"
+              type="text"
               inputMode="decimal"
               aria-label={`Shape ${dimension}`}
               title="Press Enter to apply"
               value={value}
-              onFocus={(event) => event.currentTarget.select()}
+              onFocus={(event) => {
+                const input = event.currentTarget;
+
+                requestAnimationFrame(() => {
+                  const caretPosition = input.value.length;
+                  input.setSelectionRange(caretPosition, caretPosition);
+                });
+              }}
               onChange={(event) =>
                 setMeasurementDrafts((current) => ({
                   ...current,
