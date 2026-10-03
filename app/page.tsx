@@ -71,7 +71,7 @@ type DraftOverlay =
 
 type DragState = {
   id: number;
-  target: "shape" | "force" | "force-rotate";
+  target: "shape" | "force";
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
@@ -594,26 +594,6 @@ export default function Home() {
       originStartY: forceItem.startY,
       originEndX: forceItem.endX,
       originEndY: forceItem.endY,
-    };
-  }
-
-  function handleForceRotatePointerDown(
-    event: ReactPointerEvent<SVGElement>,
-    id: number,
-  ) {
-    event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
-
-    clearDrawingTools();
-    setSelectedShapeId(null);
-    setSelectedForceId(id);
-
-    dragStateRef.current = {
-      id,
-      target: "force-rotate",
-      pointerId: event.pointerId,
-      lastClientX: event.clientX,
-      lastClientY: event.clientY,
     };
   }
 
@@ -1298,6 +1278,74 @@ export default function Home() {
     );
   }
 
+  function segmentsIntersect(
+    firstStart: { x: number; y: number },
+    firstEnd: { x: number; y: number },
+    secondStart: { x: number; y: number },
+    secondEnd: { x: number; y: number },
+  ) {
+    const firstDeltaX = firstEnd.x - firstStart.x;
+    const firstDeltaY = firstEnd.y - firstStart.y;
+    const secondDeltaX = secondEnd.x - secondStart.x;
+    const secondDeltaY = secondEnd.y - secondStart.y;
+    const denominator =
+      firstDeltaX * secondDeltaY - firstDeltaY * secondDeltaX;
+
+    if (Math.abs(denominator) < 0.000001) return false;
+
+    const offsetX = secondStart.x - firstStart.x;
+    const offsetY = secondStart.y - firstStart.y;
+    const firstProgress =
+      (offsetX * secondDeltaY - offsetY * secondDeltaX) / denominator;
+    const secondProgress =
+      (offsetX * firstDeltaY - offsetY * firstDeltaX) / denominator;
+
+    return (
+      firstProgress >= 0 &&
+      firstProgress <= 1 &&
+      secondProgress >= 0 &&
+      secondProgress <= 1
+    );
+  }
+
+  function pointToSegmentDistance(
+    point: { x: number; y: number },
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) {
+    const closest = getClosestPointOnSegment(point, start, end);
+    return Math.hypot(point.x - closest.x, point.y - closest.y);
+  }
+
+  function appliedForceOverlapsMeasurement(
+    labelCenter: { x: number; y: number },
+    guideStart: { x: number; y: number },
+    guideEnd: { x: number; y: number },
+  ) {
+    return overlayItems.some((item) => {
+      if (
+        item.category !== "force" ||
+        item.kind !== "Applied Force"
+      ) {
+        return false;
+      }
+
+      const forceStart = {
+        x: item.startX * zoom + viewportOffset.x,
+        y: item.startY * zoom + viewportOffset.y,
+      };
+      const forceEnd = {
+        x: item.endX * zoom + viewportOffset.x,
+        y: item.endY * zoom + viewportOffset.y,
+      };
+
+      return (
+        segmentsIntersect(forceStart, forceEnd, guideStart, guideEnd) ||
+        pointToSegmentDistance(labelCenter, forceStart, forceEnd) <= 20
+      );
+    });
+  }
+
   function renderShapeMeasurements(shape: DrawnShape) {
     const displayShape = getDisplayShape(shape);
 
@@ -1322,6 +1370,42 @@ export default function Home() {
     }
 
     const bounds = getShapeBounds(displayShape);
+    const screenLeft = bounds.x * zoom + viewportOffset.x;
+    const screenTop = bounds.y * zoom + viewportOffset.y;
+    const screenWidth = bounds.width * zoom;
+    const screenHeight = bounds.height * zoom;
+    const screenRight = screenLeft + screenWidth;
+    const screenBottom = screenTop + screenHeight;
+    const screenCenterX = screenLeft + screenWidth / 2;
+    const screenCenterY = screenTop + screenHeight / 2;
+
+    const widthOutsideY = screenBottom + 24;
+    const widthInsideOffset = Math.min(
+      24,
+      Math.max(12, screenHeight / 3),
+    );
+    const widthOverlapsForce = appliedForceOverlapsMeasurement(
+      { x: screenCenterX, y: widthOutsideY },
+      { x: screenLeft, y: widthOutsideY },
+      { x: screenRight, y: widthOutsideY },
+    );
+    const widthY = widthOverlapsForce
+      ? screenBottom - widthInsideOffset
+      : widthOutsideY;
+
+    const heightOutsideX = screenRight + 24;
+    const heightInsideOffset = Math.min(
+      24,
+      Math.max(12, screenWidth / 3),
+    );
+    const heightOverlapsForce = appliedForceOverlapsMeasurement(
+      { x: heightOutsideX, y: screenCenterY },
+      { x: heightOutsideX, y: screenTop },
+      { x: heightOutsideX, y: screenBottom },
+    );
+    const heightX = heightOverlapsForce
+      ? screenRight - heightInsideOffset
+      : heightOutsideX;
 
     return (
       <div key={`measurements-${shape.id}`} className="shape-measurement-group">
@@ -1331,16 +1415,11 @@ export default function Home() {
           shape.measurements.widthMeters,
           "shape-measurement-horizontal",
           {
-            left:
-              (bounds.x + bounds.width / 2) * zoom +
-              viewportOffset.x,
-            top:
-              (bounds.y + bounds.height) * zoom +
-              viewportOffset.y +
-              24,
+            left: screenCenterX,
+            top: widthY,
           },
           `width-${shape.id}`,
-          bounds.width * zoom,
+          screenWidth,
         )}
 
         {renderMeasurementEditor(
@@ -1349,16 +1428,11 @@ export default function Home() {
           shape.measurements.heightMeters,
           "shape-measurement-vertical",
           {
-            left:
-              (bounds.x + bounds.width) * zoom +
-              viewportOffset.x +
-              24,
-            top:
-              (bounds.y + bounds.height / 2) * zoom +
-              viewportOffset.y,
+            left: heightX,
+            top: screenCenterY,
           },
           `height-${shape.id}`,
-          bounds.height * zoom,
+          screenHeight,
         )}
       </div>
     );
@@ -1704,54 +1778,6 @@ export default function Home() {
     const dragState = dragStateRef.current;
 
     if (dragState && dragState.pointerId === event.pointerId) {
-      if (dragState.target === "force-rotate") {
-        const point = getCanvasPoint(event);
-
-        setOverlayItems((current) =>
-          current.map((item) => {
-            if (item.category !== "force" || item.id !== dragState.id) {
-              return item;
-            }
-
-            const forceLength =
-              item.kind === "Applied Force"
-                ? APPLIED_FORCE_LENGTH
-                : Math.max(
-                    1,
-                    Math.hypot(
-                      item.endX - item.startX,
-                      item.endY - item.startY,
-                    ),
-                  );
-
-            const pointerDeltaX = point.x - item.startX;
-            const pointerDeltaY = point.y - item.startY;
-            const pointerDistance = Math.hypot(
-              pointerDeltaX,
-              pointerDeltaY,
-            );
-
-            if (pointerDistance < 0.001) return item;
-
-            const rotatedForce = {
-              ...item,
-              endX:
-                item.startX +
-                (pointerDeltaX / pointerDistance) * forceLength,
-              endY:
-                item.startY +
-                (pointerDeltaY / pointerDistance) * forceLength,
-            };
-
-            return item.kind === "Applied Force"
-              ? snapAppliedForceToShape(rotatedForce)
-              : rotatedForce;
-          }),
-        );
-
-        return;
-      }
-
       if (
         dragState.target === "force" &&
         dragState.originClientX !== undefined &&
@@ -2210,17 +2236,6 @@ export default function Home() {
     if (item.category === "force") {
       const midpointX = (item.startX + item.endX) / 2;
       const midpointY = (item.startY + item.endY) / 2;
-      const forceDeltaX = item.endX - item.startX;
-      const forceDeltaY = item.endY - item.startY;
-      const forceLength = Math.max(
-        1,
-        Math.hypot(forceDeltaX, forceDeltaY),
-      );
-      const rotateHandleOffset = 18 / zoom;
-      const rotateHandleX =
-        item.endX + (forceDeltaX / forceLength) * rotateHandleOffset;
-      const rotateHandleY =
-        item.endY + (forceDeltaY / forceLength) * rotateHandleOffset;
 
       return (
         <g
@@ -2246,40 +2261,6 @@ export default function Home() {
             y2={item.endY}
             markerEnd="url(#force-arrowhead)"
           />
-
-          {isSelectedForce && "id" in item && (
-            <>
-              <line
-                className="force-rotate-guide"
-                x1={item.endX}
-                y1={item.endY}
-                x2={rotateHandleX}
-                y2={rotateHandleY}
-              />
-              <g
-                className="force-rotate-handle"
-                transform={`translate(${rotateHandleX} ${rotateHandleY}) scale(${1 / zoom})`}
-                onPointerDown={(event) =>
-                  handleForceRotatePointerDown(event, item.id)
-                }
-              >
-                <circle
-                  className="force-rotate-handle-bg"
-                  cx="0"
-                  cy="0"
-                  r="9"
-                />
-                <path
-                  className="force-rotate-icon"
-                  d="M -4.8 -1.8 A 5.7 5.7 0 1 1 -1.4 5.2"
-                />
-                <path
-                  className="force-rotate-icon"
-                  d="M -5.2 -5.1 L -4.8 -1.8 L -1.7 -2.8"
-                />
-              </g>
-            </>
-          )}
 
           {!isSelectedForce && (
             <text x={midpointX + 8} y={midpointY - 8}>
