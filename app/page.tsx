@@ -902,12 +902,10 @@ export default function Home() {
     const bounds = getShapeBounds(displayShape);
     const supportPoint = getSupportContactPoint(support);
     const centerX = bounds.x + bounds.width / 2;
-    const centerY = bounds.y + bounds.height / 2;
 
     const isOnSupportedSide =
-      support.kind === "Fixed Support"
-        ? centerX >= supportPoint.x - maxDistance
-        : centerY <= supportPoint.y + maxDistance;
+      support.kind !== "Fixed Support" ||
+      centerX >= supportPoint.x - maxDistance;
 
     if (!isOnSupportedSide) return null;
 
@@ -2378,65 +2376,34 @@ export default function Home() {
           (event.clientX - dragState.originClientX) / zoom;
         const totalDeltaY =
           (event.clientY - dragState.originClientY) / zoom;
-        const pointerTravel = Math.hypot(
-          event.clientX - dragState.originClientX,
-          event.clientY - dragState.originClientY,
+        const proposedSupport: SupportItem = {
+          ...currentSupport,
+          startX: dragState.originStartX + totalDeltaX,
+          startY: dragState.originStartY + totalDeltaY,
+          endX: dragState.originEndX + totalDeltaX,
+          endY: dragState.originEndY + totalDeltaY,
+        };
+        const shapeSnap = getBestShapeSnapForSupport(
+          proposedSupport,
+          SUPPORT_SNAP_DISTANCE_PX / zoom,
         );
 
-        let nextSupport: SupportItem;
-
-        if (
-          dragState.snappedShapeId !== undefined &&
-          pointerTravel < SUPPORT_SNAP_RELEASE_PX
-        ) {
-          nextSupport = {
-            ...currentSupport,
-          };
-        } else {
-          const proposedSupport: SupportItem = {
-            ...currentSupport,
-            startX: dragState.originStartX + totalDeltaX,
-            startY: dragState.originStartY + totalDeltaY,
-            endX: dragState.originEndX + totalDeltaX,
-            endY: dragState.originEndY + totalDeltaY,
-          };
-          const shapeSnap = getBestShapeSnapForSupport(
-            proposedSupport,
-            SUPPORT_SNAP_DISTANCE_PX / zoom,
-          );
-
-          if (shapeSnap) {
-            nextSupport = {
+        const nextSupport = shapeSnap
+          ? {
               ...proposedSupport,
               startX: proposedSupport.startX - shapeSnap.offsetX,
               startY: proposedSupport.startY - shapeSnap.offsetY,
               endX: proposedSupport.endX - shapeSnap.offsetX,
               endY: proposedSupport.endY - shapeSnap.offsetY,
-            };
-
-            dragStateRef.current = {
-              ...dragState,
-              lastClientX: event.clientX,
-              lastClientY: event.clientY,
-              originClientX: event.clientX,
-              originClientY: event.clientY,
-              originStartX: nextSupport.startX,
-              originStartY: nextSupport.startY,
-              originEndX: nextSupport.endX,
-              originEndY: nextSupport.endY,
-              snappedShapeId: shapeSnap.shape.id,
-            };
-          } else {
-            nextSupport = proposedSupport;
-
-            if (dragState.snappedShapeId !== undefined) {
-              dragStateRef.current = {
-                ...dragState,
-                snappedShapeId: undefined,
-              };
             }
-          }
-        }
+          : proposedSupport;
+
+        dragStateRef.current = {
+          ...dragState,
+          lastClientX: event.clientX,
+          lastClientY: event.clientY,
+          snappedShapeId: shapeSnap?.shape.id,
+        };
 
         if (
           nextSupport.startX !== currentSupport.startX ||
