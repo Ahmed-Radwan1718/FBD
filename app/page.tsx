@@ -93,7 +93,7 @@ type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
 type MeasurementDimension = "width" | "height" | "length";
 
 const PIXELS_PER_METER = 100;
-const APPLIED_FORCE_LENGTH = 90;
+const APPLIED_FORCE_LENGTH = 135;
 const FORCE_SNAP_DISTANCE_PX = 14;
 const FORCE_SNAP_RELEASE_PX = 28;
 
@@ -2281,74 +2281,6 @@ export default function Home() {
             </>
           )}
 
-          {isSelectedForce && "id" in item && (
-            <foreignObject
-              className="force-inline-editor-object"
-              x={midpointX - 103}
-              y={midpointY - 48}
-              width={206}
-              height={36}
-            >
-              <div
-                className="force-inline-editor"
-                onPointerDown={(event) => event.stopPropagation()}
-              >
-                <input
-                  className="force-inline-name"
-                  type="text"
-                  aria-label="Force name"
-                  title="Force name"
-                  value={item.name}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onChange={(event) =>
-                    updateForceName(item.id, event.currentTarget.value)
-                  }
-                />
-
-                <span className="force-inline-separator" aria-hidden="true" />
-
-                <label className="force-inline-value" title="Magnitude">
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    aria-label="Force magnitude"
-                    value={
-                      item.kind === "Applied Load"
-                        ? formatDimensionValue(item.magnitude)
-                        : item.magnitude
-                    }
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) =>
-                      updateForceMagnitude(item.id, event.currentTarget.value)
-                    }
-                  />
-                  <span>
-                    {item.kind === "Applied Load"
-                      ? `N·${dimensionUnit}`
-                      : "N"}
-                  </span>
-                </label>
-
-                <span className="force-inline-separator" aria-hidden="true" />
-
-                <label className="force-inline-value" title="Angle from +x">
-                  <input
-                    type="number"
-                    step="any"
-                    aria-label="Force angle"
-                    value={Number(getForceAngle(item).toFixed(1))}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) =>
-                      updateForceAngle(item.id, event.currentTarget.value)
-                    }
-                  />
-                  <span>°</span>
-                </label>
-              </div>
-            </foreignObject>
-          )}
-
           {!isSelectedForce && (
             <text x={midpointX + 8} y={midpointY - 8}>
               {item.name} ={" "}
@@ -2724,30 +2656,95 @@ export default function Home() {
           </button>
 
           {forcesOpen && (
-            <div className="shape-list">
-              {forceTools.map((tool) => {
-                const active = selectedForceTool === tool;
+            <>
+              <div className="shape-list">
+                {forceTools.map((tool) => {
+                  const active = selectedForceTool === tool;
 
-                return (
-                  <button
-                    className={`shape-button ${active ? "is-active" : ""}`}
-                    type="button"
-                    key={tool}
-                    aria-pressed={active}
-                    disabled={tool === "Applied Load" && drawnShapes.length === 0}
-                    title={
-                      tool === "Applied Load" && drawnShapes.length === 0
-                        ? "Draw a shape before applying a distributed load"
-                        : undefined
+                  return (
+                    <button
+                      className={`shape-button ${active ? "is-active" : ""}`}
+                      type="button"
+                      key={tool}
+                      aria-pressed={active}
+                      disabled={tool === "Applied Load" && drawnShapes.length === 0}
+                      title={
+                        tool === "Applied Load" && drawnShapes.length === 0
+                          ? "Draw a shape before applying a distributed load"
+                          : undefined
+                      }
+                      onClick={() => toggleForceTool(tool)}
+                    >
+                      <ToolIcon tool={tool} />
+                      <span>{tool}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedForceItem?.kind === "Applied Force" && (
+                <div
+                  className="sidebar-force-editor"
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <input
+                    className="sidebar-force-name"
+                    type="text"
+                    aria-label="Force name"
+                    title="Force name"
+                    value={selectedForceItem.name}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                      updateForceName(
+                        selectedForceItem.id,
+                        event.currentTarget.value,
+                      )
                     }
-                    onClick={() => toggleForceTool(tool)}
-                  >
-                    <ToolIcon tool={tool} />
-                    <span>{tool}</span>
-                  </button>
-                );
-              })}
-            </div>
+                  />
+
+                  <span className="sidebar-force-separator" aria-hidden="true" />
+
+                  <label className="sidebar-force-value" title="Magnitude">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      aria-label="Force magnitude"
+                      value={selectedForceItem.magnitude}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        updateForceMagnitude(
+                          selectedForceItem.id,
+                          event.currentTarget.value,
+                        )
+                      }
+                    />
+                    <span>N</span>
+                  </label>
+
+                  <span className="sidebar-force-separator" aria-hidden="true" />
+
+                  <label className="sidebar-force-value" title="Angle from +x">
+                    <input
+                      type="number"
+                      step="any"
+                      aria-label="Force angle"
+                      value={Number(
+                        getForceAngle(selectedForceItem).toFixed(1),
+                      )}
+                      onFocus={(event) => event.currentTarget.select()}
+                      onChange={(event) =>
+                        updateForceAngle(
+                          selectedForceItem.id,
+                          event.currentTarget.value,
+                        )
+                      }
+                    />
+                    <span>°</span>
+                  </label>
+                </div>
+              )}
+            </>
           )}
         </div>
 
