@@ -386,11 +386,11 @@ line.canvas-shape.saved-shape {
 .shape-measurement-display {
   position: relative;
   z-index: 2;
-  min-height: 22px;
-  padding: 3px 7px;
+  min-height: 0;
+  padding: 0;
   border: 0;
-  border-radius: 5px;
-  background: rgba(246, 245, 241, 0.9);
+  border-radius: 0;
+  background: var(--canvas);
   color: inherit;
   display: flex;
   align-items: center;
@@ -398,16 +398,13 @@ line.canvas-shape.saved-shape {
   font: inherit;
   font-variant-numeric: tabular-nums;
   cursor: text;
-  transition:
-    background 130ms ease,
-    color 130ms ease,
-    box-shadow 130ms ease;
+  box-shadow: none;
 }
 
 .shape-measurement-display:hover {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--canvas);
   color: #171717;
-  box-shadow: 0 1px 4px rgba(17, 17, 17, 0.08);
+  box-shadow: none;
 }
 
 .shape-measurement.is-selected .shape-measurement-display {
@@ -422,11 +419,11 @@ line.canvas-shape.saved-shape {
 .shape-measurement-editor {
   position: relative;
   z-index: 3;
-  min-height: 22px;
-  padding: 3px 7px;
+  min-height: 0;
+  padding: 0;
   border: 0;
-  border-radius: 5px;
-  background: rgba(246, 245, 241, 0.9);
+  border-radius: 0;
+  background: var(--canvas);
   box-shadow: none;
   display: flex;
   align-items: center;
