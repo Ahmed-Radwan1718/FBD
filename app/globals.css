@@ -375,65 +375,49 @@ line.canvas-shape.saved-shape {
 .shape-measurement-editor {
   position: relative;
   z-index: 3;
-  height: 28px;
-  padding: 2px 5px 2px 8px;
-  border: 1px solid rgba(17, 17, 17, 0.16);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.08);
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(246, 245, 241, 0.9);
+  box-shadow: none;
   display: flex;
   align-items: center;
   gap: 4px;
-  transition:
-    border-color 130ms ease,
-    box-shadow 130ms ease;
-}
-
-.shape-measurement-editor:focus-within {
-  border-color: rgba(17, 17, 17, 0.38);
-  box-shadow:
-    0 2px 8px rgba(17, 17, 17, 0.08),
-    0 0 0 2px rgba(17, 17, 17, 0.04);
 }
 
 .shape-measurement-editor input {
-  width: 48px;
-  min-width: 0;
+  field-sizing: content;
+  width: auto;
+  min-width: 2ch;
+  max-width: 72px;
   padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
-  color: #171717;
+  color: inherit;
   font: inherit;
   font-variant-numeric: tabular-nums;
   text-align: right;
-  appearance: textfield;
-}
-
-.shape-measurement-editor input::-webkit-inner-spin-button,
-.shape-measurement-editor input::-webkit-outer-spin-button {
-  margin: 0;
-  appearance: none;
 }
 
 .shape-measurement-separator {
-  width: 1px;
-  height: 14px;
-  margin: 0 2px;
-  background: rgba(17, 17, 17, 0.14);
-  flex: 0 0 1px;
+  display: none;
 }
 
 .shape-measurement-editor select {
-  width: 42px;
+  field-sizing: content;
+  width: auto;
   min-width: 0;
   padding: 0;
   border: 0;
   outline: 0;
   background: transparent;
-  color: #55534f;
+  color: #8b8984;
   font: inherit;
+  font-weight: 600;
   cursor: pointer;
+  appearance: none;
 }
 
 .canvas-grid {
