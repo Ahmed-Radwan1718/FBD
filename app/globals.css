@@ -291,28 +291,37 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-radius {
+  width: var(--measurement-guide-length);
   transform: translate(-50%, -50%);
+  gap: 6px;
+}
+
+.shape-measurement-radius::before,
+.shape-measurement-radius::after {
+  content: "";
+  height: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+  background: rgba(17, 17, 17, 0.28);
+  pointer-events: none;
 }
 
 .shape-measurement-radius .shape-measurement-guide {
-  left: 50%;
-  top: 50%;
-  width: var(--measurement-guide-length);
-  height: 1px;
-  transform: translate(-50%, -50%);
+  display: none;
 }
 
 .shape-measurement-radius .shape-measurement-display,
 .shape-measurement-radius .shape-measurement-editor {
   min-height: 0;
-  padding: 0 7px;
+  padding: 0;
   border-radius: 0;
-  background: var(--canvas);
+  background: transparent;
   box-shadow: none;
+  flex: 0 0 auto;
 }
 
 .shape-measurement-radius .shape-measurement-display:hover {
-  background: var(--canvas);
+  background: transparent;
   box-shadow: none;
 }
 
