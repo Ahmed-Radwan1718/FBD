@@ -13,7 +13,12 @@ type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
 type ForceTool = "Applied Force" | "Applied Load";
 type SupportTool = "Pin Support" | "Roller Support" | "Fixed Support";
 type ConnectionTool = "Hinge" | "Cable" | "Spring";
-type CanvasControl = "Grid" | "Snap to grid" | "Fit all" | "Reset view";
+type CanvasControl =
+  | "Grid"
+  | "Snap to grid"
+  | "Midpoints"
+  | "Fit all"
+  | "Reset view";
 type SidebarTool = ForceTool | SupportTool | ConnectionTool | CanvasControl;
 
 type ShapeMeasurements = {
@@ -96,6 +101,7 @@ const PIXELS_PER_METER = 100;
 const APPLIED_FORCE_LENGTH = 135;
 const FORCE_SNAP_DISTANCE_PX = 14;
 const FORCE_SNAP_RELEASE_PX = 28;
+const MIDPOINT_SNAP_DISTANCE_PX = 22;
 
 const metersPerUnit: Record<LengthUnit, number> = {
   km: 1000,
@@ -236,6 +242,12 @@ function ToolIcon({ tool }: { tool: SidebarTool }) {
           <path d="M12 5v14M5 12h14" {...common} />
         </>
       )}
+      {tool === "Midpoints" && (
+        <>
+          <path d="M4 12h16" {...common} />
+          <path d="m12 7 4 7H8Z" {...common} />
+        </>
+      )}
       {tool === "Fit all" && (
         <>
           <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" {...common} />
@@ -288,6 +300,7 @@ export default function Home() {
 
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  const [showMidpoints, setShowMidpoints] = useState(false);
   const [orthogonalForces, setOrthogonalForces] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
@@ -648,6 +661,77 @@ export default function Home() {
     };
   }
 
+  function getShapeMidpoints(shape: DrawnShape) {
+    const bounds = getShapeBounds(shape);
+
+    if (shape.shape === "Line") {
+      return [
+        {
+          x: (shape.startX + shape.endX) / 2,
+          y: (shape.startY + shape.endY) / 2,
+        },
+      ];
+    }
+
+    if (shape.shape === "Circle") {
+      return [
+        {
+          x: bounds.x + bounds.width / 2,
+          y: bounds.y + bounds.height / 2,
+        },
+      ];
+    }
+
+    if (shape.shape === "Triangle") {
+      const top = {
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y,
+      };
+      const bottomRight = {
+        x: bounds.x + bounds.width,
+        y: bounds.y + bounds.height,
+      };
+      const bottomLeft = {
+        x: bounds.x,
+        y: bounds.y + bounds.height,
+      };
+
+      return [
+        {
+          x: (top.x + bottomRight.x) / 2,
+          y: (top.y + bottomRight.y) / 2,
+        },
+        {
+          x: (bottomRight.x + bottomLeft.x) / 2,
+          y: (bottomRight.y + bottomLeft.y) / 2,
+        },
+        {
+          x: (bottomLeft.x + top.x) / 2,
+          y: (bottomLeft.y + top.y) / 2,
+        },
+      ];
+    }
+
+    return [
+      {
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y,
+      },
+      {
+        x: bounds.x + bounds.width,
+        y: bounds.y + bounds.height / 2,
+      },
+      {
+        x: bounds.x + bounds.width / 2,
+        y: bounds.y + bounds.height,
+      },
+      {
+        x: bounds.x,
+        y: bounds.y + bounds.height / 2,
+      },
+    ];
+  }
+
   function getShapeSnapPoint(
     shape: DrawnShape,
     point: { x: number; y: number },
@@ -746,6 +830,50 @@ export default function Home() {
     return bestPoint;
   }
 
+  function getPreferredShapeSnapCandidate(
+    shape: DrawnShape,
+    point: { x: number; y: number },
+    midpointDistance: number,
+  ) {
+    if (showMidpoints) {
+      let bestMidpoint:
+        | {
+            point: { x: number; y: number };
+            distance: number;
+          }
+        | null = null;
+
+      for (const midpoint of getShapeMidpoints(shape)) {
+        const distance = Math.hypot(
+          point.x - midpoint.x,
+          point.y - midpoint.y,
+        );
+
+        if (!bestMidpoint || distance < bestMidpoint.distance) {
+          bestMidpoint = { point: midpoint, distance };
+        }
+      }
+
+      if (bestMidpoint && bestMidpoint.distance <= midpointDistance) {
+        return {
+          ...bestMidpoint,
+          isMidpoint: true,
+        };
+      }
+    }
+
+    const snapPoint = getShapeSnapPoint(shape, point);
+
+    return {
+      point: snapPoint,
+      distance: Math.hypot(
+        point.x - snapPoint.x,
+        point.y - snapPoint.y,
+      ),
+      isMidpoint: false,
+    };
+  }
+
   function normalizeAppliedForceLength(force: ForceItem) {
     if (force.kind !== "Applied Force") return force;
 
@@ -805,20 +933,17 @@ export default function Home() {
       );
 
       if (attachedShape) {
-        const snapPoint = getShapeSnapPoint(
+        const snapCandidate = getPreferredShapeSnapCandidate(
           getDisplayShape(attachedShape),
           { x: normalizedForce.endX, y: normalizedForce.endY },
-        );
-        const distance = Math.hypot(
-          normalizedForce.endX - snapPoint.x,
-          normalizedForce.endY - snapPoint.y,
+          releaseDistance,
         );
 
-        if (distance <= releaseDistance) {
+        if (snapCandidate.distance <= releaseDistance) {
           return attachForceToShape(
             normalizedForce,
             attachedShape.id,
-            snapPoint,
+            snapCandidate.point,
           );
         }
       }
@@ -837,19 +962,19 @@ export default function Home() {
       | null = null;
 
     for (const shape of drawnShapes) {
-      const snapPoint = getShapeSnapPoint(
+      const snapCandidate = getPreferredShapeSnapCandidate(
         getDisplayShape(shape),
         { x: detachedForce.endX, y: detachedForce.endY },
+        MIDPOINT_SNAP_DISTANCE_PX / zoom,
       );
-      const distance = Math.hypot(
-        detachedForce.endX - snapPoint.x,
-        detachedForce.endY - snapPoint.y,
-      );
+      const snapLimit = snapCandidate.isMidpoint
+        ? MIDPOINT_SNAP_DISTANCE_PX / zoom
+        : acquireDistance;
 
-      if (distance > acquireDistance) continue;
+      if (snapCandidate.distance > snapLimit) continue;
 
-      const toShapeX = snapPoint.x - detachedForce.startX;
-      const toShapeY = snapPoint.y - detachedForce.startY;
+      const toShapeX = snapCandidate.point.x - detachedForce.startX;
+      const toShapeY = snapCandidate.point.y - detachedForce.startY;
       const toShapeLength = Math.max(
         0.001,
         Math.hypot(toShapeX, toShapeY),
@@ -860,11 +985,15 @@ export default function Home() {
 
       if (alignment < 0.72) continue;
 
-      if (!bestMatch || distance < bestMatch.distance) {
+      if (
+        !bestMatch ||
+        (snapCandidate.isMidpoint && snapCandidate.distance <= MIDPOINT_SNAP_DISTANCE_PX / zoom) ||
+        snapCandidate.distance < bestMatch.distance
+      ) {
         bestMatch = {
           shapeId: shape.id,
-          point: snapPoint,
-          distance,
+          point: snapCandidate.point,
+          distance: snapCandidate.distance,
         };
       }
     }
@@ -924,19 +1053,19 @@ export default function Home() {
       | null = null;
 
     for (const shape of drawnShapes) {
-      const snapPoint = getShapeSnapPoint(
+      const snapCandidate = getPreferredShapeSnapCandidate(
         getDisplayShape(shape),
         constrainedPoint,
+        MIDPOINT_SNAP_DISTANCE_PX / zoom,
       );
-      const distance = Math.hypot(
-        constrainedPoint.x - snapPoint.x,
-        constrainedPoint.y - snapPoint.y,
-      );
+      const snapLimit = snapCandidate.isMidpoint
+        ? MIDPOINT_SNAP_DISTANCE_PX / zoom
+        : acquireDistance;
 
-      if (distance > acquireDistance) continue;
+      if (snapCandidate.distance > snapLimit) continue;
 
-      const toShapeX = snapPoint.x - origin.x;
-      const toShapeY = snapPoint.y - origin.y;
+      const toShapeX = snapCandidate.point.x - origin.x;
+      const toShapeY = snapCandidate.point.y - origin.y;
       const toShapeLength = Math.max(
         0.001,
         Math.hypot(toShapeX, toShapeY),
@@ -947,11 +1076,15 @@ export default function Home() {
 
       if (alignment < 0.72) continue;
 
-      if (!bestMatch || distance < bestMatch.distance) {
+      if (
+        !bestMatch ||
+        (snapCandidate.isMidpoint && snapCandidate.distance <= MIDPOINT_SNAP_DISTANCE_PX / zoom) ||
+        snapCandidate.distance < bestMatch.distance
+      ) {
         bestMatch = {
           shapeId: shape.id,
-          point: snapPoint,
-          distance,
+          point: snapCandidate.point,
+          distance: snapCandidate.distance,
         };
       }
     }
@@ -2633,6 +2766,31 @@ export default function Home() {
               renderShape(getDisplayShape(shape), shape.id, true),
             )}
 
+            {showMidpoints &&
+              drawnShapes.map((shape) => (
+                <g
+                  key={`midpoints-${shape.id}`}
+                  className="shape-midpoint-markers"
+                >
+                  {getShapeMidpoints(getDisplayShape(shape)).map(
+                    (midpoint, index) => {
+                      const markerSize = 5 / zoom;
+
+                      return (
+                        <path
+                          key={index}
+                          className="shape-midpoint-marker"
+                          d={`M ${midpoint.x} ${midpoint.y - markerSize}
+                            L ${midpoint.x + markerSize} ${midpoint.y + markerSize * 0.85}
+                            L ${midpoint.x - markerSize} ${midpoint.y + markerSize * 0.85}
+                            Z`}
+                        />
+                      );
+                    },
+                  )}
+                </g>
+              ))}
+
             {overlayItems.map((item) =>
               renderOverlayItem(item, item.id),
             )}
@@ -2945,6 +3103,16 @@ export default function Home() {
               >
                 <ToolIcon tool="Snap to grid" />
                 <span>Snap to grid</span>
+              </button>
+
+              <button
+                className={`shape-button ${showMidpoints ? "is-active" : ""}`}
+                type="button"
+                aria-pressed={showMidpoints}
+                onClick={() => setShowMidpoints((value) => !value)}
+              >
+                <ToolIcon tool="Midpoints" />
+                <span>Midpoints</span>
               </button>
 
               <button
