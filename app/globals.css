@@ -302,6 +302,20 @@ line.canvas-shape.saved-shape {
   transform: translate(-50%, -50%);
 }
 
+.shape-measurement-radius .shape-measurement-display,
+.shape-measurement-radius .shape-measurement-editor {
+  min-height: 0;
+  padding: 0 7px;
+  border-radius: 0;
+  background: var(--canvas);
+  box-shadow: none;
+}
+
+.shape-measurement-radius .shape-measurement-display:hover {
+  background: var(--canvas);
+  box-shadow: none;
+}
+
 .shape-measurement-vertical {
   transform: translate(-50%, -50%);
 }
