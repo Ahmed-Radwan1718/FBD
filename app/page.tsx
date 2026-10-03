@@ -13,12 +13,7 @@ type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
 type ForceTool = "Applied Force" | "Applied Load";
 type SupportTool = "Pin Support" | "Roller Support" | "Fixed Support";
 type ConnectionTool = "Hinge" | "Cable" | "Spring";
-type CanvasControl =
-  | "Grid"
-  | "Snap to grid"
-  | "Midpoints"
-  | "Fit all"
-  | "Reset view";
+type CanvasControl = "Grid" | "Snap to grid" | "Fit all" | "Reset view";
 type SidebarTool = ForceTool | SupportTool | ConnectionTool | CanvasControl;
 
 type ShapeMeasurements = {
@@ -242,12 +237,6 @@ function ToolIcon({ tool }: { tool: SidebarTool }) {
           <path d="M12 5v14M5 12h14" {...common} />
         </>
       )}
-      {tool === "Midpoints" && (
-        <>
-          <path d="M4 12h16" {...common} />
-          <path d="m12 7 4 7H8Z" {...common} />
-        </>
-      )}
       {tool === "Fit all" && (
         <>
           <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" {...common} />
@@ -300,7 +289,7 @@ export default function Home() {
 
   const [showGrid, setShowGrid] = useState(true);
   const [snapToGrid, setSnapToGrid] = useState(false);
-  const [showMidpoints, setShowMidpoints] = useState(false);
+  const [showForceMidpoints, setShowForceMidpoints] = useState(false);
   const [orthogonalForces, setOrthogonalForces] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
@@ -309,6 +298,7 @@ export default function Home() {
   const dragStateRef = useRef<DragState | null>(null);
   const panStateRef = useRef<PanState | null>(null);
   const draftForceOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const forceMidpointsActiveRef = useRef(false);
   const schematicViewRef = useRef({
     zoom: 1,
     viewportOffset: { x: 0, y: 0 },
@@ -475,6 +465,8 @@ export default function Home() {
       }
 
       draftForceOriginRef.current = { x: point.x, y: point.y };
+      forceMidpointsActiveRef.current = true;
+      setShowForceMidpoints(true);
       setDraftOverlay({
         category: "force",
         kind: selectedForceTool,
@@ -594,6 +586,8 @@ export default function Home() {
       return;
     }
 
+    forceMidpointsActiveRef.current = true;
+    setShowForceMidpoints(true);
     event.currentTarget.setPointerCapture(event.pointerId);
 
     dragStateRef.current = {
@@ -835,7 +829,7 @@ export default function Home() {
     point: { x: number; y: number },
     midpointDistance: number,
   ) {
-    if (showMidpoints) {
+    if (forceMidpointsActiveRef.current) {
       let bestMidpoint:
         | {
             point: { x: number; y: number };
@@ -2180,6 +2174,8 @@ export default function Home() {
   function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
     if (dragStateRef.current?.pointerId === event.pointerId) {
       dragStateRef.current = null;
+      forceMidpointsActiveRef.current = false;
+      setShowForceMidpoints(false);
       return;
     }
 
@@ -2241,6 +2237,8 @@ export default function Home() {
       }
 
       draftForceOriginRef.current = null;
+      forceMidpointsActiveRef.current = false;
+      setShowForceMidpoints(false);
       setDraftOverlay(null);
       return;
     }
@@ -2719,6 +2717,8 @@ export default function Home() {
           dragStateRef.current = null;
           panStateRef.current = null;
           draftForceOriginRef.current = null;
+          forceMidpointsActiveRef.current = false;
+          setShowForceMidpoints(false);
           setDraftShape(null);
           setDraftOverlay(null);
         }}
@@ -2766,7 +2766,7 @@ export default function Home() {
               renderShape(getDisplayShape(shape), shape.id, true),
             )}
 
-            {showMidpoints &&
+            {showForceMidpoints &&
               drawnShapes.map((shape) => (
                 <g
                   key={`midpoints-${shape.id}`}
@@ -3103,16 +3103,6 @@ export default function Home() {
               >
                 <ToolIcon tool="Snap to grid" />
                 <span>Snap to grid</span>
-              </button>
-
-              <button
-                className={`shape-button ${showMidpoints ? "is-active" : ""}`}
-                type="button"
-                aria-pressed={showMidpoints}
-                onClick={() => setShowMidpoints((value) => !value)}
-              >
-                <ToolIcon tool="Midpoints" />
-                <span>Midpoints</span>
               </button>
 
               <button
