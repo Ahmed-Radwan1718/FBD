@@ -1649,6 +1649,19 @@ export default function Home() {
         };
       }
 
+      if (shape.shape === "Circle" && dimension === "length") {
+        const diameterMeters = enteredMeters * 2;
+
+        return {
+          ...shape,
+          measurements: {
+            ...shape.measurements,
+            widthMeters: diameterMeters,
+            heightMeters: diameterMeters,
+          },
+        };
+      }
+
       if (shape.shape === "Square" || shape.shape === "Circle") {
         return {
           ...shape,
@@ -1913,6 +1926,21 @@ export default function Home() {
     const screenBottom = screenTop + screenHeight;
     const screenCenterX = screenLeft + screenWidth / 2;
     const screenCenterY = screenTop + screenHeight / 2;
+
+    if (shape.shape === "Circle") {
+      return renderMeasurementEditor(
+        shape,
+        "length",
+        shape.measurements.widthMeters / 2,
+        "shape-measurement-radius",
+        {
+          left: screenCenterX + screenWidth / 4,
+          top: screenCenterY,
+        },
+        `radius-${shape.id}`,
+        screenWidth / 2,
+      );
+    }
 
     const widthOutsideY = screenBottom + 24;
     const widthInsideOffset = Math.min(
