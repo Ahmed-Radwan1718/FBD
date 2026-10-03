@@ -145,7 +145,7 @@ line.canvas-shape.saved-shape {
   pointer-events: stroke;
 }
 
-.diagram-overlay-force.is-selected > line:not(.force-hit-target):not(.force-rotate-guide):not(.applied-load-hit-target) {
+.diagram-overlay-force.is-selected > line:not(.force-hit-target):not(.applied-load-hit-target) {
   stroke-width: 3;
   filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.18));
 }
@@ -167,38 +167,6 @@ line.canvas-shape.saved-shape {
 .diagram-overlay-force.applied-load.is-selected .applied-load-cap,
 .diagram-overlay-force.applied-load.is-selected .applied-load-arrow {
   filter: drop-shadow(0 2px 3px rgba(17, 17, 17, 0.14));
-}
-
-.diagram-overlay-force .force-rotate-guide {
-  stroke: rgba(17, 17, 17, 0.28);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-  pointer-events: none;
-}
-
-.diagram-overlay-force .force-rotate-handle {
-  cursor: grab;
-  pointer-events: all;
-}
-
-.diagram-overlay-force .force-rotate-handle:active {
-  cursor: grabbing;
-}
-
-.diagram-overlay-force .force-rotate-handle-bg {
-  fill: #ffffff;
-  stroke: rgba(17, 17, 17, 0.7);
-  stroke-width: 1.25;
-  filter: drop-shadow(0 1px 2px rgba(17, 17, 17, 0.16));
-}
-
-.diagram-overlay-force .force-rotate-icon {
-  fill: none;
-  stroke: #171717;
-  stroke-width: 1.45;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  pointer-events: none;
 }
 
 .diagram-overlay-force text {
