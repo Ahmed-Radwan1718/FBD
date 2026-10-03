@@ -142,6 +142,30 @@ line.canvas-shape.saved-shape {
   fill: #ffffff;
 }
 
+.diagram-overlay-support .support-reactions {
+  pointer-events: none;
+}
+
+.diagram-overlay-support .support-reaction {
+  fill: none;
+  stroke: #55534f;
+  stroke-width: 1.65;
+  pointer-events: none;
+}
+
+.diagram-overlay-support .support-reaction-moment {
+  stroke-width: 1.5;
+}
+
+.diagram-overlay-support .support-reaction-label {
+  fill: #55534f;
+  stroke: none;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10px;
+  font-weight: 750;
+  pointer-events: none;
+}
+
 .diagram-overlay-force.is-selectable {
   pointer-events: all;
   cursor: grab;
