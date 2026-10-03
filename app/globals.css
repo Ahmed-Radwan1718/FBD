@@ -90,6 +90,19 @@ button {
   filter: drop-shadow(0 2px 4px rgba(17, 17, 17, 0.16));
 }
 
+.shape-midpoint-markers {
+  pointer-events: none;
+}
+
+.shape-midpoint-marker {
+  fill: rgba(255, 255, 255, 0.96);
+  stroke: #171717;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(17, 17, 17, 0.12));
+}
+
 line.canvas-shape {
   fill: none;
   stroke-linecap: round;
