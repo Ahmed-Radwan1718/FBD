@@ -290,6 +290,18 @@ line.canvas-shape.saved-shape {
   right: 0;
 }
 
+.shape-measurement-radius {
+  transform: translate(-50%, -50%);
+}
+
+.shape-measurement-radius .shape-measurement-guide {
+  left: 50%;
+  top: 50%;
+  width: var(--measurement-guide-length);
+  height: 1px;
+  transform: translate(-50%, -50%);
+}
+
 .shape-measurement-vertical {
   transform: translate(-50%, -50%);
 }
