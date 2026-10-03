@@ -2121,9 +2121,10 @@ export default function Home() {
       { x: heightOutsideX, y: screenTop },
       { x: heightOutsideX, y: screenBottom },
     );
-    const heightX = heightOverlapsForce
+    const rawHeightX = heightOverlapsForce
       ? screenRight - heightInsideOffset
       : heightOutsideX;
+    const heightX = Math.round(rawHeightX - 0.5) + 0.5;
 
     return (
       <div key={`measurements-${shape.id}`} className="shape-measurement-group">
