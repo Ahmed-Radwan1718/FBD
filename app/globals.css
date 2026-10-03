@@ -344,33 +344,39 @@ line.canvas-shape.saved-shape {
 }
 
 .shape-measurement-vertical {
+  height: var(--measurement-guide-length);
   transform: translate(-50%, -50%);
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shape-measurement-vertical::before,
+.shape-measurement-vertical::after {
+  content: "";
+  width: 1px;
+  min-height: 0;
+  flex: 1 1 auto;
+  background: rgba(17, 17, 17, 0.28);
+  pointer-events: none;
 }
 
 .shape-measurement-vertical .shape-measurement-guide {
-  left: 50%;
-  top: 50%;
-  width: 1px;
-  height: var(--measurement-guide-length);
-  transform: translate(-50%, -50%);
+  display: none;
 }
 
-.shape-measurement-vertical .shape-measurement-guide::before,
-.shape-measurement-vertical .shape-measurement-guide::after {
-  content: "";
-  position: absolute;
-  left: -3px;
-  width: 7px;
-  height: 1px;
-  background: rgba(17, 17, 17, 0.38);
+.shape-measurement-vertical .shape-measurement-display,
+.shape-measurement-vertical .shape-measurement-editor {
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  flex: 0 0 auto;
 }
 
-.shape-measurement-vertical .shape-measurement-guide::before {
-  top: 0;
-}
-
-.shape-measurement-vertical .shape-measurement-guide::after {
-  bottom: 0;
+.shape-measurement-vertical .shape-measurement-display:hover {
+  background: transparent;
+  box-shadow: none;
 }
 
 .shape-measurement-line .shape-measurement-guide {
