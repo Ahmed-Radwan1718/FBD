@@ -75,6 +75,12 @@ type DragState = {
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
+  originClientX?: number;
+  originClientY?: number;
+  originStartX?: number;
+  originStartY?: number;
+  originEndX?: number;
+  originEndY?: number;
 };
 
 type PanState = {
@@ -87,6 +93,8 @@ type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
 type MeasurementDimension = "width" | "height" | "length";
 
 const PIXELS_PER_METER = 100;
+const FORCE_SNAP_DISTANCE_PX = 18;
+const FORCE_SNAP_RELEASE_PX = 32;
 
 const metersPerUnit: Record<LengthUnit, number> = {
   km: 1000,
@@ -562,7 +570,9 @@ export default function Home() {
       (item) => item.category === "force" && item.id === id,
     );
 
-    if (forceItem?.category === "force" && forceItem.kind === "Applied Load") {
+    if (!forceItem || forceItem.category !== "force") return;
+
+    if (forceItem.kind === "Applied Load") {
       dragStateRef.current = null;
       return;
     }
@@ -575,6 +585,12 @@ export default function Home() {
       pointerId: event.pointerId,
       lastClientX: event.clientX,
       lastClientY: event.clientY,
+      originClientX: event.clientX,
+      originClientY: event.clientY,
+      originStartX: forceItem.startX,
+      originStartY: forceItem.startY,
+      originEndX: forceItem.endX,
+      originEndY: forceItem.endY,
     };
   }
 
@@ -619,6 +635,233 @@ export default function Home() {
       width: Math.abs(dx),
       height: Math.abs(dy),
     };
+  }
+
+  function getClosestPointOnSegment(
+    point: { x: number; y: number },
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) {
+    const deltaX = end.x - start.x;
+    const deltaY = end.y - start.y;
+    const lengthSquared = deltaX * deltaX + deltaY * deltaY;
+
+    if (lengthSquared === 0) return start;
+
+    const progress = Math.max(
+      0,
+      Math.min(
+        1,
+        ((point.x - start.x) * deltaX +
+          (point.y - start.y) * deltaY) /
+          lengthSquared,
+      ),
+    );
+
+    return {
+      x: start.x + deltaX * progress,
+      y: start.y + deltaY * progress,
+    };
+  }
+
+  function getShapeSnapPoint(
+    shape: DrawnShape,
+    point: { x: number; y: number },
+  ) {
+    const bounds = getShapeBounds(shape);
+
+    if (shape.shape === "Circle") {
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+      const radius = Math.max(bounds.width / 2, 0.001);
+      const deltaX = point.x - centerX;
+      const deltaY = point.y - centerY;
+      const distance = Math.hypot(deltaX, deltaY);
+
+      if (distance < 0.001) {
+        return { x: centerX, y: centerY - radius };
+      }
+
+      return {
+        x: centerX + (deltaX / distance) * radius,
+        y: centerY + (deltaY / distance) * radius,
+      };
+    }
+
+    const segments =
+      shape.shape === "Line"
+        ? [
+            [
+              { x: shape.startX, y: shape.startY },
+              { x: shape.endX, y: shape.endY },
+            ],
+          ]
+        : shape.shape === "Triangle"
+          ? [
+              [
+                { x: bounds.x + bounds.width / 2, y: bounds.y },
+                { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+              ],
+              [
+                { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+                { x: bounds.x, y: bounds.y + bounds.height },
+              ],
+              [
+                { x: bounds.x, y: bounds.y + bounds.height },
+                { x: bounds.x + bounds.width / 2, y: bounds.y },
+              ],
+            ]
+          : [
+              [
+                { x: bounds.x, y: bounds.y },
+                { x: bounds.x + bounds.width, y: bounds.y },
+              ],
+              [
+                { x: bounds.x + bounds.width, y: bounds.y },
+                {
+                  x: bounds.x + bounds.width,
+                  y: bounds.y + bounds.height,
+                },
+              ],
+              [
+                {
+                  x: bounds.x + bounds.width,
+                  y: bounds.y + bounds.height,
+                },
+                { x: bounds.x, y: bounds.y + bounds.height },
+              ],
+              [
+                { x: bounds.x, y: bounds.y + bounds.height },
+                { x: bounds.x, y: bounds.y },
+              ],
+            ];
+
+    let bestPoint = getClosestPointOnSegment(
+      point,
+      segments[0][0],
+      segments[0][1],
+    );
+    let bestDistance = Math.hypot(
+      point.x - bestPoint.x,
+      point.y - bestPoint.y,
+    );
+
+    for (const [start, end] of segments.slice(1)) {
+      const candidate = getClosestPointOnSegment(point, start, end);
+      const distance = Math.hypot(
+        point.x - candidate.x,
+        point.y - candidate.y,
+      );
+
+      if (distance < bestDistance) {
+        bestPoint = candidate;
+        bestDistance = distance;
+      }
+    }
+
+    return bestPoint;
+  }
+
+  function attachForceToShape(
+    force: ForceItem,
+    shapeId: number,
+    snapPoint: { x: number; y: number },
+  ) {
+    const offsetX = snapPoint.x - force.endX;
+    const offsetY = snapPoint.y - force.endY;
+
+    return {
+      ...force,
+      shapeId,
+      startX: force.startX + offsetX,
+      startY: force.startY + offsetY,
+      endX: snapPoint.x,
+      endY: snapPoint.y,
+    };
+  }
+
+  function snapAppliedForceToShape(force: ForceItem) {
+    if (force.kind !== "Applied Force") return force;
+
+    const forceDeltaX = force.endX - force.startX;
+    const forceDeltaY = force.endY - force.startY;
+    const forceLength = Math.max(
+      0.001,
+      Math.hypot(forceDeltaX, forceDeltaY),
+    );
+    const releaseDistance = FORCE_SNAP_RELEASE_PX / zoom;
+    const acquireDistance = FORCE_SNAP_DISTANCE_PX / zoom;
+
+    if (force.shapeId !== undefined) {
+      const attachedShape = drawnShapes.find(
+        (shape) => shape.id === force.shapeId,
+      );
+
+      if (attachedShape) {
+        const snapPoint = getShapeSnapPoint(
+          getDisplayShape(attachedShape),
+          { x: force.endX, y: force.endY },
+        );
+        const distance = Math.hypot(
+          force.endX - snapPoint.x,
+          force.endY - snapPoint.y,
+        );
+
+        if (distance <= releaseDistance) {
+          return attachForceToShape(force, attachedShape.id, snapPoint);
+        }
+      }
+    }
+
+    const detachedForce = { ...force, shapeId: undefined };
+    let bestMatch:
+      | {
+          shapeId: number;
+          point: { x: number; y: number };
+          distance: number;
+        }
+      | null = null;
+
+    for (const shape of drawnShapes) {
+      const snapPoint = getShapeSnapPoint(
+        getDisplayShape(shape),
+        { x: detachedForce.endX, y: detachedForce.endY },
+      );
+      const distance = Math.hypot(
+        detachedForce.endX - snapPoint.x,
+        detachedForce.endY - snapPoint.y,
+      );
+
+      if (distance > acquireDistance) continue;
+
+      const toShapeX = snapPoint.x - detachedForce.startX;
+      const toShapeY = snapPoint.y - detachedForce.startY;
+      const toShapeLength = Math.max(
+        0.001,
+        Math.hypot(toShapeX, toShapeY),
+      );
+      const alignment =
+        (forceDeltaX * toShapeX + forceDeltaY * toShapeY) /
+        (forceLength * toShapeLength);
+
+      if (alignment < 0.45) continue;
+
+      if (!bestMatch || distance < bestMatch.distance) {
+        bestMatch = {
+          shapeId: shape.id,
+          point: snapPoint,
+          distance,
+        };
+      }
+    }
+
+    if (!bestMatch) return detachedForce;
+
+    return attachForceToShape(
+      detachedForce,
+      bestMatch.shapeId,
+      bestMatch.point,
+    );
   }
 
   function metersToPixels(meters: number) {
@@ -1066,7 +1309,6 @@ export default function Home() {
         (item) =>
           !(
             item.category === "force" &&
-            item.kind === "Applied Load" &&
             item.shapeId === deletedShapeId
           ),
       ),
@@ -1135,7 +1377,6 @@ export default function Home() {
           (item) =>
             !(
               item.category === "force" &&
-              item.kind === "Applied Load" &&
               item.shapeId === deletedShapeId
             ),
         ),
@@ -1374,11 +1615,15 @@ export default function Home() {
           ),
         );
 
-        return {
+        const rotatedForce = {
           ...item,
           endX: item.startX + Math.cos(radians) * length,
           endY: item.startY - Math.sin(radians) * length,
         };
+
+        return item.kind === "Applied Force"
+          ? snapAppliedForceToShape(rotatedForce)
+          : rotatedForce;
       }),
     );
   }
@@ -1413,7 +1658,7 @@ export default function Home() {
 
             if (pointerDistance < 0.001) return item;
 
-            return {
+            const rotatedForce = {
               ...item,
               endX:
                 item.startX +
@@ -1422,6 +1667,47 @@ export default function Home() {
                 item.startY +
                 (pointerDeltaY / pointerDistance) * forceLength,
             };
+
+            return item.kind === "Applied Force"
+              ? snapAppliedForceToShape(rotatedForce)
+              : rotatedForce;
+          }),
+        );
+
+        return;
+      }
+
+      if (
+        dragState.target === "force" &&
+        dragState.originClientX !== undefined &&
+        dragState.originClientY !== undefined &&
+        dragState.originStartX !== undefined &&
+        dragState.originStartY !== undefined &&
+        dragState.originEndX !== undefined &&
+        dragState.originEndY !== undefined
+      ) {
+        const totalDeltaX =
+          (event.clientX - dragState.originClientX) / zoom;
+        const totalDeltaY =
+          (event.clientY - dragState.originClientY) / zoom;
+
+        setOverlayItems((current) =>
+          current.map((item) => {
+            if (item.category !== "force" || item.id !== dragState.id) {
+              return item;
+            }
+
+            const movedForce = {
+              ...item,
+              startX: dragState.originStartX! + totalDeltaX,
+              startY: dragState.originStartY! + totalDeltaY,
+              endX: dragState.originEndX! + totalDeltaX,
+              endY: dragState.originEndY! + totalDeltaY,
+            };
+
+            return item.kind === "Applied Force"
+              ? snapAppliedForceToShape(movedForce)
+              : movedForce;
           }),
         );
 
@@ -1446,10 +1732,11 @@ export default function Home() {
                 : shape,
             ),
           );
-        } else {
+
           setOverlayItems((current) =>
             current.map((item) =>
-              item.category === "force" && item.id === dragState.id
+              item.category === "force" &&
+              item.shapeId === dragState.id
                 ? {
                     ...item,
                     startX: item.startX + deltaX,
@@ -1556,14 +1843,19 @@ export default function Home() {
         endX: isPointTool ? draftOverlay.startX : point.x,
         endY: isPointTool ? draftOverlay.startY : point.y,
       } as OverlayItem;
+      const overlayToAdd =
+        finishedOverlay.category === "force" &&
+        finishedOverlay.kind === "Applied Force"
+          ? snapAppliedForceToShape(finishedOverlay)
+          : finishedOverlay;
 
       const length = Math.hypot(
-        finishedOverlay.endX - finishedOverlay.startX,
-        finishedOverlay.endY - finishedOverlay.startY,
+        overlayToAdd.endX - overlayToAdd.startX,
+        overlayToAdd.endY - overlayToAdd.startY,
       );
 
       if (isPointTool || length > 3) {
-        setOverlayItems((current) => [...current, finishedOverlay]);
+        setOverlayItems((current) => [...current, overlayToAdd]);
       }
 
       setDraftOverlay(null);
