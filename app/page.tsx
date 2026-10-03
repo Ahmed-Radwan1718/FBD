@@ -9,7 +9,13 @@ import type {
 
 type ViewMode = "2D" | "3D";
 type ScaleMode = "schematic" | "to-scale";
-type Shape = "Square" | "Rectangle" | "Circle" | "Triangle" | "Line";
+type Shape =
+  | "Square"
+  | "Rectangle"
+  | "Circle"
+  | "Triangle"
+  | "Line"
+  | "Polygon";
 type ForceTool = "Applied Force" | "Applied Load";
 type SupportTool = "Pin Support" | "Roller Support" | "Fixed Support";
 type ConnectionTool = "Hinge" | "Cable" | "Spring";
@@ -22,6 +28,11 @@ type ShapeMeasurements = {
   lengthMeters: number;
 };
 
+type ShapePoint = {
+  x: number;
+  y: number;
+};
+
 type DrawnShape = {
   id: number;
   shape: Shape;
@@ -29,10 +40,16 @@ type DrawnShape = {
   startY: number;
   endX: number;
   endY: number;
+  vertices?: ShapePoint[];
   measurements: ShapeMeasurements;
 };
 
 type DraftShape = Omit<DrawnShape, "id" | "measurements">;
+
+type PolygonDraft = {
+  vertices: ShapePoint[];
+  hoverPoint: ShapePoint;
+};
 
 type OverlayGeometry = {
   startX: number;
@@ -81,6 +98,7 @@ type DragState = {
   originStartY?: number;
   originEndX?: number;
   originEndY?: number;
+  originVertices?: ShapePoint[];
   snappedSupportId?: number;
   snappedShapeId?: number;
 };
@@ -125,7 +143,13 @@ const lengthUnits: { value: LengthUnit; label: string }[] = [
   { value: "ft", label: "feet" },
 ];
 
-const shapes: Shape[] = ["Rectangle", "Circle", "Triangle", "Line"];
+const shapes: Shape[] = [
+  "Rectangle",
+  "Circle",
+  "Triangle",
+  "Line",
+  "Polygon",
+];
 
 const forceTools: ForceTool[] = ["Applied Force", "Applied Load"];
 
@@ -170,6 +194,9 @@ function ShapeIcon({ shape }: { shape: Shape }) {
       {shape === "Circle" && <circle cx="12" cy="12" r="7.5" {...common} />}
       {shape === "Triangle" && <path d="M12 4.5 20 18H4Z" {...common} />}
       {shape === "Line" && <path d="M4.5 17.5 19.5 6.5" {...common} />}
+      {shape === "Polygon" && (
+        <path d="M7 4.5 18.5 7.5 20 16 11.5 20 4 14Z" {...common} />
+      )}
     </svg>
   );
 }
@@ -289,6 +316,7 @@ export default function Home() {
 
   const [drawnShapes, setDrawnShapes] = useState<DrawnShape[]>([]);
   const [draftShape, setDraftShape] = useState<DraftShape | null>(null);
+  const [polygonDraft, setPolygonDraft] = useState<PolygonDraft | null>(null);
   const [overlayItems, setOverlayItems] = useState<OverlayItem[]>([]);
   const [draftOverlay, setDraftOverlay] = useState<DraftOverlay | null>(null);
 
@@ -369,6 +397,7 @@ export default function Home() {
     setSelectedForceTool(null);
     setSelectedSupportTool(null);
     setSelectedConnectionTool(null);
+    setPolygonDraft(null);
   }
 
   function toggleShapeTool(shape: Shape) {
@@ -431,6 +460,58 @@ export default function Home() {
     setZoom(nextZoom);
   }
 
+  function getPolygonArea(vertices: ShapePoint[]) {
+    if (vertices.length < 3) return 0;
+
+    let doubledArea = 0;
+
+    for (let index = 0; index < vertices.length; index += 1) {
+      const current = vertices[index];
+      const next = vertices[(index + 1) % vertices.length];
+
+      doubledArea += current.x * next.y - next.x * current.y;
+    }
+
+    return Math.abs(doubledArea) / 2;
+  }
+
+  function finishPolygon(vertices: ShapePoint[]) {
+    if (vertices.length < 3 || getPolygonArea(vertices) <= 1) return;
+
+    const minX = Math.min(...vertices.map((vertex) => vertex.x));
+    const minY = Math.min(...vertices.map((vertex) => vertex.y));
+    const maxX = Math.max(...vertices.map((vertex) => vertex.x));
+    const maxY = Math.max(...vertices.map((vertex) => vertex.y));
+    const perimeter = vertices.reduce((total, vertex, index) => {
+      const next = vertices[(index + 1) % vertices.length];
+
+      return total + Math.hypot(next.x - vertex.x, next.y - vertex.y);
+    }, 0);
+
+    const finishedShape: DrawnShape = {
+      id: Date.now(),
+      shape: "Polygon",
+      startX: minX,
+      startY: minY,
+      endX: maxX,
+      endY: maxY,
+      vertices: vertices.map((vertex) => ({ ...vertex })),
+      measurements: {
+        widthMeters: (maxX - minX) / PIXELS_PER_METER,
+        heightMeters: (maxY - minY) / PIXELS_PER_METER,
+        lengthMeters: perimeter / PIXELS_PER_METER,
+      },
+    };
+    const nextShapes = [...drawnShapes, finishedShape];
+
+    setDrawnShapes(nextShapes);
+    setPolygonDraft(null);
+
+    if (scaleMode === "to-scale") {
+      requestAnimationFrame(() => fitToScaleView(nextShapes));
+    }
+  }
+
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
     if (event.button !== 0) return;
 
@@ -449,6 +530,40 @@ export default function Home() {
     }
 
     const point = getDrawingPoint(event);
+
+    if (selectedShape === "Polygon") {
+      if (!polygonDraft) {
+        setPolygonDraft({
+          vertices: [point],
+          hoverPoint: point,
+        });
+        return;
+      }
+
+      const firstVertex = polygonDraft.vertices[0];
+      const closeDistance = Math.hypot(
+        point.x - firstVertex.x,
+        point.y - firstVertex.y,
+      );
+
+      if (
+        polygonDraft.vertices.length >= 3 &&
+        closeDistance <= 12 / zoom
+      ) {
+        finishPolygon(polygonDraft.vertices);
+        return;
+      }
+
+      setPolygonDraft((current) =>
+        current
+          ? {
+              vertices: [...current.vertices, point],
+              hoverPoint: point,
+            }
+          : null,
+      );
+      return;
+    }
 
     event.currentTarget.setPointerCapture(event.pointerId);
 
@@ -578,6 +693,7 @@ export default function Home() {
       originStartY: shape.startY,
       originEndX: shape.endX,
       originEndY: shape.endY,
+      originVertices: shape.vertices?.map((vertex) => ({ ...vertex })),
       snappedSupportId: attachedSupport?.support.id,
     };
   }
@@ -661,6 +777,20 @@ export default function Home() {
   }
 
   function getShapeBounds(shape: DrawnShape | DraftShape) {
+    if (shape.shape === "Polygon" && shape.vertices?.length) {
+      const minX = Math.min(...shape.vertices.map((vertex) => vertex.x));
+      const minY = Math.min(...shape.vertices.map((vertex) => vertex.y));
+      const maxX = Math.max(...shape.vertices.map((vertex) => vertex.x));
+      const maxY = Math.max(...shape.vertices.map((vertex) => vertex.y));
+
+      return {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      };
+    }
+
     const dx = shape.endX - shape.startX;
     const dy = shape.endY - shape.startY;
 
@@ -729,6 +859,17 @@ export default function Home() {
           y: bounds.y + bounds.height / 2,
         },
       ];
+    }
+
+    if (shape.shape === "Polygon" && shape.vertices?.length) {
+      return shape.vertices.map((vertex, index) => {
+        const next = shape.vertices![(index + 1) % shape.vertices!.length];
+
+        return {
+          x: (vertex.x + next.x) / 2,
+          y: (vertex.y + next.y) / 2,
+        };
+      });
     }
 
     if (shape.shape === "Triangle") {
@@ -813,6 +954,11 @@ export default function Home() {
               { x: shape.endX, y: shape.endY },
             ],
           ]
+        : shape.shape === "Polygon" && shape.vertices?.length
+          ? shape.vertices.map((vertex, index) => [
+              vertex,
+              shape.vertices![(index + 1) % shape.vertices!.length],
+            ])
         : shape.shape === "Triangle"
           ? [
               [
@@ -1453,6 +1599,8 @@ export default function Home() {
   }
 
   function getToScaleShape(shape: DrawnShape): DrawnShape {
+    if (shape.shape === "Polygon") return shape;
+
     const dx = shape.endX - shape.startX;
     const dy = shape.endY - shape.startY;
 
@@ -1901,6 +2049,8 @@ export default function Home() {
 
   function renderShapeMeasurements(shape: DrawnShape) {
     const displayShape = getDisplayShape(shape);
+
+    if (shape.shape === "Polygon") return null;
 
     if (shape.shape === "Line") {
       return renderMeasurementEditor(
@@ -2494,6 +2644,10 @@ export default function Home() {
             startY: dragState.originStartY + totalDeltaY,
             endX: dragState.originEndX + totalDeltaX,
             endY: dragState.originEndY + totalDeltaY,
+            vertices: dragState.originVertices?.map((vertex) => ({
+              x: vertex.x + totalDeltaX,
+              y: vertex.y + totalDeltaY,
+            })),
           };
           const supportSnap = getBestSupportSnap(
             proposedShape,
@@ -2507,6 +2661,10 @@ export default function Home() {
               startY: proposedShape.startY + supportSnap.offsetY,
               endX: proposedShape.endX + supportSnap.offsetX,
               endY: proposedShape.endY + supportSnap.offsetY,
+              vertices: proposedShape.vertices?.map((vertex) => ({
+                x: vertex.x + supportSnap.offsetX,
+                y: vertex.y + supportSnap.offsetY,
+              })),
             };
 
             dragStateRef.current = {
@@ -2519,6 +2677,9 @@ export default function Home() {
               originStartY: nextShape.startY,
               originEndX: nextShape.endX,
               originEndY: nextShape.endY,
+              originVertices: nextShape.vertices?.map((vertex) => ({
+                ...vertex,
+              })),
               snappedSupportId: supportSnap.support.id,
             };
           } else {
@@ -2632,6 +2793,25 @@ export default function Home() {
         return previewDraft;
       });
 
+      return;
+    }
+
+    if (selectedShape === "Polygon" && polygonDraft) {
+      const point = getDrawingPoint(event);
+      const firstVertex = polygonDraft.vertices[0];
+      const shouldClose =
+        polygonDraft.vertices.length >= 3 &&
+        Math.hypot(point.x - firstVertex.x, point.y - firstVertex.y) <=
+          12 / zoom;
+
+      setPolygonDraft((current) =>
+        current
+          ? {
+              ...current,
+              hoverPoint: shouldClose ? firstVertex : point,
+            }
+          : null,
+      );
       return;
     }
 
@@ -3122,6 +3302,23 @@ export default function Home() {
       .filter(Boolean)
       .join(" ");
 
+    if (shape.shape === "Polygon" && shape.vertices?.length) {
+      return (
+        <polygon
+          key={key}
+          points={shape.vertices
+            .map((vertex) => `${vertex.x},${vertex.y}`)
+            .join(" ")}
+          className={shapeClassName}
+          onPointerDown={
+            selectable && "id" in shape
+              ? (event) => handleShapePointerDown(event, shape.id)
+              : undefined
+          }
+        />
+      );
+    }
+
     if (shape.shape === "Line") {
       return (
         <line
@@ -3238,6 +3435,7 @@ export default function Home() {
           forceMidpointsActiveRef.current = false;
           setShowForceMidpoints(false);
           setDraftShape(null);
+          setPolygonDraft(null);
           setDraftOverlay(null);
         }}
       >
@@ -3316,6 +3514,23 @@ export default function Home() {
             {draftShape && (
               <g className="draft-shape">
                 {renderShape(draftShape, "draft")}
+              </g>
+            )}
+
+            {polygonDraft && (
+              <g className="polygon-draft">
+                <polyline
+                  className="canvas-shape"
+                  points={[...polygonDraft.vertices, polygonDraft.hoverPoint]
+                    .map((vertex) => `${vertex.x},${vertex.y}`)
+                    .join(" ")}
+                />
+                <circle
+                  className="polygon-close-target"
+                  cx={polygonDraft.vertices[0].x}
+                  cy={polygonDraft.vertices[0].y}
+                  r={6 / zoom}
+                />
               </g>
             )}
 
