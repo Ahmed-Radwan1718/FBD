@@ -93,8 +93,9 @@ type LengthUnit = "km" | "m" | "cm" | "mm" | "µm" | "nm" | "in" | "ft";
 type MeasurementDimension = "width" | "height" | "length";
 
 const PIXELS_PER_METER = 100;
-const FORCE_SNAP_DISTANCE_PX = 18;
-const FORCE_SNAP_RELEASE_PX = 32;
+const APPLIED_FORCE_LENGTH = 90;
+const FORCE_SNAP_DISTANCE_PX = 14;
+const FORCE_SNAP_RELEASE_PX = 28;
 
 const metersPerUnit: Record<LengthUnit, number> = {
   km: 1000,
@@ -293,6 +294,7 @@ export default function Home() {
   const canvasRef = useRef<HTMLElement | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const panStateRef = useRef<PanState | null>(null);
+  const draftForceOriginRef = useRef<{ x: number; y: number } | null>(null);
   const schematicViewRef = useRef({
     zoom: 1,
     viewportOffset: { x: 0, y: 0 },
@@ -458,6 +460,7 @@ export default function Home() {
         return;
       }
 
+      draftForceOriginRef.current = { x: point.x, y: point.y };
       setDraftOverlay({
         category: "force",
         kind: selectedForceTool,
@@ -762,19 +765,41 @@ export default function Home() {
     return bestPoint;
   }
 
+  function normalizeAppliedForceLength(force: ForceItem) {
+    if (force.kind !== "Applied Force") return force;
+
+    const deltaX = force.endX - force.startX;
+    const deltaY = force.endY - force.startY;
+    const length = Math.hypot(deltaX, deltaY);
+
+    if (length < 0.001) return force;
+
+    const directionX = deltaX / length;
+    const directionY = deltaY / length;
+
+    return {
+      ...force,
+      endX: force.startX + directionX * APPLIED_FORCE_LENGTH,
+      endY: force.startY + directionY * APPLIED_FORCE_LENGTH,
+    };
+  }
+
   function attachForceToShape(
     force: ForceItem,
     shapeId: number,
     snapPoint: { x: number; y: number },
   ) {
-    const offsetX = snapPoint.x - force.endX;
-    const offsetY = snapPoint.y - force.endY;
+    const deltaX = force.endX - force.startX;
+    const deltaY = force.endY - force.startY;
+    const length = Math.max(0.001, Math.hypot(deltaX, deltaY));
+    const directionX = deltaX / length;
+    const directionY = deltaY / length;
 
     return {
       ...force,
       shapeId,
-      startX: force.startX + offsetX,
-      startY: force.startY + offsetY,
+      startX: snapPoint.x - directionX * APPLIED_FORCE_LENGTH,
+      startY: snapPoint.y - directionY * APPLIED_FORCE_LENGTH,
       endX: snapPoint.x,
       endY: snapPoint.y,
     };
@@ -783,8 +808,9 @@ export default function Home() {
   function snapAppliedForceToShape(force: ForceItem) {
     if (force.kind !== "Applied Force") return force;
 
-    const forceDeltaX = force.endX - force.startX;
-    const forceDeltaY = force.endY - force.startY;
+    const normalizedForce = normalizeAppliedForceLength(force);
+    const forceDeltaX = normalizedForce.endX - normalizedForce.startX;
+    const forceDeltaY = normalizedForce.endY - normalizedForce.startY;
     const forceLength = Math.max(
       0.001,
       Math.hypot(forceDeltaX, forceDeltaY),
@@ -792,28 +818,35 @@ export default function Home() {
     const releaseDistance = FORCE_SNAP_RELEASE_PX / zoom;
     const acquireDistance = FORCE_SNAP_DISTANCE_PX / zoom;
 
-    if (force.shapeId !== undefined) {
+    if (normalizedForce.shapeId !== undefined) {
       const attachedShape = drawnShapes.find(
-        (shape) => shape.id === force.shapeId,
+        (shape) => shape.id === normalizedForce.shapeId,
       );
 
       if (attachedShape) {
         const snapPoint = getShapeSnapPoint(
           getDisplayShape(attachedShape),
-          { x: force.endX, y: force.endY },
+          { x: normalizedForce.endX, y: normalizedForce.endY },
         );
         const distance = Math.hypot(
-          force.endX - snapPoint.x,
-          force.endY - snapPoint.y,
+          normalizedForce.endX - snapPoint.x,
+          normalizedForce.endY - snapPoint.y,
         );
 
         if (distance <= releaseDistance) {
-          return attachForceToShape(force, attachedShape.id, snapPoint);
+          return attachForceToShape(
+            normalizedForce,
+            attachedShape.id,
+            snapPoint,
+          );
         }
       }
     }
 
-    const detachedForce = { ...force, shapeId: undefined };
+    const detachedForce = {
+      ...normalizedForce,
+      shapeId: undefined,
+    };
     let bestMatch:
       | {
           shapeId: number;
@@ -844,7 +877,7 @@ export default function Home() {
         (forceDeltaX * toShapeX + forceDeltaY * toShapeY) /
         (forceLength * toShapeLength);
 
-      if (alignment < 0.45) continue;
+      if (alignment < 0.72) continue;
 
       if (!bestMatch || distance < bestMatch.distance) {
         bestMatch = {
@@ -862,6 +895,42 @@ export default function Home() {
       bestMatch.shapeId,
       bestMatch.point,
     );
+  }
+
+  function buildAppliedForceFromPointer(
+    force: Omit<ForceItem, "id">,
+    origin: { x: number; y: number },
+    point: { x: number; y: number },
+  ) {
+    const deltaX = point.x - origin.x;
+    const deltaY = point.y - origin.y;
+    const length = Math.hypot(deltaX, deltaY);
+
+    if (length < 0.001) {
+      return {
+        ...force,
+        id: -1,
+        shapeId: undefined,
+        startX: origin.x,
+        startY: origin.y,
+        endX: origin.x,
+        endY: origin.y,
+      };
+    }
+
+    const directionX = deltaX / length;
+    const directionY = deltaY / length;
+    const rawForce: ForceItem = {
+      ...force,
+      id: -1,
+      shapeId: undefined,
+      startX: origin.x,
+      startY: origin.y,
+      endX: origin.x + directionX * APPLIED_FORCE_LENGTH,
+      endY: origin.y + directionY * APPLIED_FORCE_LENGTH,
+    };
+
+    return snapAppliedForceToShape(rawForce);
   }
 
   function metersToPixels(meters: number) {
@@ -1607,13 +1676,16 @@ export default function Home() {
       current.map((item) => {
         if (item.category !== "force" || item.id !== id) return item;
 
-        const length = Math.max(
-          1,
-          Math.hypot(
-            item.endX - item.startX,
-            item.endY - item.startY,
-          ),
-        );
+        const length =
+          item.kind === "Applied Force"
+            ? APPLIED_FORCE_LENGTH
+            : Math.max(
+                1,
+                Math.hypot(
+                  item.endX - item.startX,
+                  item.endY - item.startY,
+                ),
+              );
 
         const rotatedForce = {
           ...item,
@@ -1641,13 +1713,16 @@ export default function Home() {
               return item;
             }
 
-            const forceLength = Math.max(
-              1,
-              Math.hypot(
-                item.endX - item.startX,
-                item.endY - item.startY,
-              ),
-            );
+            const forceLength =
+              item.kind === "Applied Force"
+                ? APPLIED_FORCE_LENGTH
+                : Math.max(
+                    1,
+                    Math.hypot(
+                      item.endX - item.startX,
+                      item.endY - item.startY,
+                    ),
+                  );
 
             const pointerDeltaX = point.x - item.startX;
             const pointerDeltaY = point.y - item.startY;
@@ -1794,25 +1869,35 @@ export default function Home() {
       setDraftOverlay((current) => {
         if (!current) return null;
 
-        const nextDraft = {
-          ...current,
-          endX: point.x,
-          endY: point.y,
-        };
-
         if (
-          nextDraft.category !== "force" ||
-          nextDraft.kind !== "Applied Force"
+          current.category !== "force" ||
+          current.kind !== "Applied Force"
         ) {
-          return nextDraft;
+          return {
+            ...current,
+            endX: point.x,
+            endY: point.y,
+          };
         }
 
-        const snappedForce = snapAppliedForceToShape({
-          ...nextDraft,
-          id: -1,
-        });
+        const origin = draftForceOriginRef.current ?? {
+          x: current.startX,
+          y: current.startY,
+        };
+        const pointerDistance = Math.hypot(
+          point.x - origin.x,
+          point.y - origin.y,
+        );
 
+        if (pointerDistance < 1 / zoom) return current;
+
+        const snappedForce = buildAppliedForceFromPointer(
+          current,
+          origin,
+          point,
+        );
         const { id: _temporaryId, ...snappedDraft } = snappedForce;
+
         return snappedDraft;
       });
 
@@ -1852,27 +1937,52 @@ export default function Home() {
         (draftOverlay.category === "connection" &&
           draftOverlay.kind === "Hinge");
 
-      const finishedOverlay = {
-        ...draftOverlay,
-        id: Date.now(),
-        endX: isPointTool ? draftOverlay.startX : point.x,
-        endY: isPointTool ? draftOverlay.startY : point.y,
-      } as OverlayItem;
-      const overlayToAdd =
-        finishedOverlay.category === "force" &&
-        finishedOverlay.kind === "Applied Force"
-          ? snapAppliedForceToShape(finishedOverlay)
-          : finishedOverlay;
+      let overlayToAdd: OverlayItem | null = null;
 
-      const length = Math.hypot(
-        overlayToAdd.endX - overlayToAdd.startX,
-        overlayToAdd.endY - overlayToAdd.startY,
-      );
+      if (
+        draftOverlay.category === "force" &&
+        draftOverlay.kind === "Applied Force"
+      ) {
+        const origin = draftForceOriginRef.current ?? {
+          x: draftOverlay.startX,
+          y: draftOverlay.startY,
+        };
+        const drawDistance = Math.hypot(
+          point.x - origin.x,
+          point.y - origin.y,
+        );
 
-      if (isPointTool || length > 3) {
-        setOverlayItems((current) => [...current, overlayToAdd]);
+        if (drawDistance > 3 / zoom) {
+          overlayToAdd = {
+            ...buildAppliedForceFromPointer(
+              draftOverlay,
+              origin,
+              point,
+            ),
+            id: Date.now(),
+          };
+        }
+      } else {
+        overlayToAdd = {
+          ...draftOverlay,
+          id: Date.now(),
+          endX: isPointTool ? draftOverlay.startX : point.x,
+          endY: isPointTool ? draftOverlay.startY : point.y,
+        } as OverlayItem;
       }
 
+      if (overlayToAdd) {
+        const length = Math.hypot(
+          overlayToAdd.endX - overlayToAdd.startX,
+          overlayToAdd.endY - overlayToAdd.startY,
+        );
+
+        if (isPointTool || length > 3) {
+          setOverlayItems((current) => [...current, overlayToAdd]);
+        }
+      }
+
+      draftForceOriginRef.current = null;
       setDraftOverlay(null);
       return;
     }
@@ -2463,6 +2573,7 @@ export default function Home() {
         onPointerCancel={() => {
           dragStateRef.current = null;
           panStateRef.current = null;
+          draftForceOriginRef.current = null;
           setDraftShape(null);
           setDraftOverlay(null);
         }}
