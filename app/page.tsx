@@ -81,6 +81,7 @@ type DragState = {
   originStartY?: number;
   originEndX?: number;
   originEndY?: number;
+  snappedSupportId?: number;
 };
 
 type PanState = {
@@ -97,6 +98,9 @@ const APPLIED_FORCE_LENGTH = 135;
 const FORCE_SNAP_DISTANCE_PX = 14;
 const FORCE_SNAP_RELEASE_PX = 28;
 const MIDPOINT_SNAP_DISTANCE_PX = 22;
+const SUPPORT_SNAP_DISTANCE_PX = 22;
+const SUPPORT_SNAP_RELEASE_PX = 34;
+const SUPPORT_CONTACT_EPSILON_PX = 3;
 
 const metersPerUnit: Record<LengthUnit, number> = {
   km: 1000,
@@ -512,11 +516,11 @@ export default function Home() {
   ) {
     event.stopPropagation();
 
+    const shape = drawnShapes.find((candidate) => candidate.id === id);
+
+    if (!shape) return;
+
     if (selectedForceTool === "Applied Load") {
-      const shape = drawnShapes.find((candidate) => candidate.id === id);
-
-      if (!shape) return;
-
       const displayShape = getDisplayShape(shape);
       const bounds = getShapeBounds(displayShape);
       const anchorX =
@@ -556,12 +560,24 @@ export default function Home() {
     setSelectedForceId(null);
     setSelectedShapeId(id);
 
+    const attachedSupport = getBestSupportSnap(
+      shape,
+      SUPPORT_CONTACT_EPSILON_PX / zoom,
+    );
+
     dragStateRef.current = {
       id,
       target: "shape",
       pointerId: event.pointerId,
       lastClientX: event.clientX,
       lastClientY: event.clientY,
+      originClientX: event.clientX,
+      originClientY: event.clientY,
+      originStartX: shape.startX,
+      originStartY: shape.startY,
+      originEndX: shape.endX,
+      originEndY: shape.endY,
+      snappedSupportId: attachedSupport?.support.id,
     };
   }
 
@@ -822,6 +838,191 @@ export default function Home() {
     }
 
     return bestPoint;
+  }
+
+  function getSupportContactPoint(support: SupportItem) {
+    if (support.kind === "Fixed Support") {
+      return {
+        x: support.startX + 24,
+        y: support.startY,
+      };
+    }
+
+    return {
+      x: support.startX,
+      y: support.startY,
+    };
+  }
+
+  function getSupportSnapForShape(
+    shape: DrawnShape,
+    support: SupportItem,
+    maxDistance: number,
+  ) {
+    const displayShape = getDisplayShape(shape);
+    const bounds = getShapeBounds(displayShape);
+    const supportPoint = getSupportContactPoint(support);
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+
+    const isOnSupportedSide =
+      support.kind === "Fixed Support"
+        ? centerX >= supportPoint.x - maxDistance
+        : centerY <= supportPoint.y + maxDistance;
+
+    if (!isOnSupportedSide) return null;
+
+    const contactPoint = getShapeSnapPoint(displayShape, supportPoint);
+    const distance = Math.hypot(
+      supportPoint.x - contactPoint.x,
+      supportPoint.y - contactPoint.y,
+    );
+
+    if (distance > maxDistance) return null;
+
+    return {
+      support,
+      supportPoint,
+      contactPoint,
+      distance,
+      offsetX: supportPoint.x - contactPoint.x,
+      offsetY: supportPoint.y - contactPoint.y,
+    };
+  }
+
+  function getBestSupportSnap(
+    shape: DrawnShape,
+    maxDistance: number,
+  ) {
+    let bestMatch:
+      | ReturnType<typeof getSupportSnapForShape>
+      | null = null;
+
+    for (const item of overlayItems) {
+      if (item.category !== "support") continue;
+
+      const match = getSupportSnapForShape(shape, item, maxDistance);
+
+      if (!match) continue;
+
+      if (!bestMatch || match.distance < bestMatch.distance) {
+        bestMatch = match;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  function isSupportAttached(support: SupportItem) {
+    return drawnShapes.some(
+      (shape) =>
+        getSupportSnapForShape(
+          shape,
+          support,
+          SUPPORT_CONTACT_EPSILON_PX / zoom,
+        ) !== null,
+    );
+  }
+
+  function renderSupportReactions(support: SupportItem) {
+    if (!isSupportAttached(support)) return null;
+
+    const point = getSupportContactPoint(support);
+    const reactionLength = 46 / zoom;
+
+    if (support.kind === "Roller Support") {
+      return (
+        <g className="support-reactions">
+          <line
+            className="support-reaction"
+            x1={point.x}
+            y1={point.y}
+            x2={point.x}
+            y2={point.y - reactionLength}
+            markerEnd="url(#force-arrowhead)"
+          />
+          <text
+            className="support-reaction-label"
+            x={point.x + 7 / zoom}
+            y={point.y - reactionLength + 10 / zoom}
+          >
+            Rᵧ
+          </text>
+        </g>
+      );
+    }
+
+    const horizontalReaction = (
+      <>
+        <line
+          className="support-reaction"
+          x1={point.x}
+          y1={point.y}
+          x2={point.x + reactionLength}
+          y2={point.y}
+          markerEnd="url(#force-arrowhead)"
+        />
+        <text
+          className="support-reaction-label"
+          x={point.x + reactionLength - 12 / zoom}
+          y={point.y - 7 / zoom}
+        >
+          Rₓ
+        </text>
+      </>
+    );
+
+    const verticalReaction = (
+      <>
+        <line
+          className="support-reaction"
+          x1={point.x}
+          y1={point.y}
+          x2={point.x}
+          y2={point.y - reactionLength}
+          markerEnd="url(#force-arrowhead)"
+        />
+        <text
+          className="support-reaction-label"
+          x={point.x + 7 / zoom}
+          y={point.y - reactionLength + 10 / zoom}
+        >
+          Rᵧ
+        </text>
+      </>
+    );
+
+    if (support.kind === "Fixed Support") {
+      const radius = 18 / zoom;
+
+      return (
+        <g className="support-reactions">
+          {horizontalReaction}
+          {verticalReaction}
+          <path
+            className="support-reaction support-reaction-moment"
+            d={`M ${point.x + radius} ${point.y + radius * 0.15}
+              A ${radius} ${radius} 0 1 0
+              ${point.x + radius * 0.15} ${point.y - radius}`}
+            markerEnd="url(#force-arrowhead)"
+          />
+          <text
+            className="support-reaction-label"
+            x={point.x + radius + 5 / zoom}
+            y={point.y + radius}
+          >
+            M
+          </text>
+        </g>
+      );
+    }
+
+    return (
+      <g className="support-reactions">
+        {horizontalReaction}
+        {verticalReaction}
+      </g>
+    );
   }
 
   function getPreferredShapeSnapCandidate(
@@ -2041,22 +2242,92 @@ export default function Home() {
         return;
       }
 
-      const deltaX = (event.clientX - dragState.lastClientX) / zoom;
-      const deltaY = (event.clientY - dragState.lastClientY) / zoom;
+      if (
+        dragState.target === "shape" &&
+        dragState.originClientX !== undefined &&
+        dragState.originClientY !== undefined &&
+        dragState.originStartX !== undefined &&
+        dragState.originStartY !== undefined &&
+        dragState.originEndX !== undefined &&
+        dragState.originEndY !== undefined
+      ) {
+        const currentShape = drawnShapes.find(
+          (shape) => shape.id === dragState.id,
+        );
 
-      if (deltaX !== 0 || deltaY !== 0) {
-        if (dragState.target === "shape") {
+        if (!currentShape) return;
+
+        const totalDeltaX =
+          (event.clientX - dragState.originClientX) / zoom;
+        const totalDeltaY =
+          (event.clientY - dragState.originClientY) / zoom;
+        const pointerTravel = Math.hypot(
+          event.clientX - dragState.originClientX,
+          event.clientY - dragState.originClientY,
+        );
+
+        let nextShape: DrawnShape;
+
+        if (
+          dragState.snappedSupportId !== undefined &&
+          pointerTravel < SUPPORT_SNAP_RELEASE_PX
+        ) {
+          nextShape = {
+            ...currentShape,
+          };
+        } else {
+          const proposedShape: DrawnShape = {
+            ...currentShape,
+            startX: dragState.originStartX + totalDeltaX,
+            startY: dragState.originStartY + totalDeltaY,
+            endX: dragState.originEndX + totalDeltaX,
+            endY: dragState.originEndY + totalDeltaY,
+          };
+          const supportSnap = getBestSupportSnap(
+            proposedShape,
+            SUPPORT_SNAP_DISTANCE_PX / zoom,
+          );
+
+          if (supportSnap) {
+            nextShape = {
+              ...proposedShape,
+              startX: proposedShape.startX + supportSnap.offsetX,
+              startY: proposedShape.startY + supportSnap.offsetY,
+              endX: proposedShape.endX + supportSnap.offsetX,
+              endY: proposedShape.endY + supportSnap.offsetY,
+            };
+
+            dragStateRef.current = {
+              ...dragState,
+              lastClientX: event.clientX,
+              lastClientY: event.clientY,
+              originClientX: event.clientX,
+              originClientY: event.clientY,
+              originStartX: nextShape.startX,
+              originStartY: nextShape.startY,
+              originEndX: nextShape.endX,
+              originEndY: nextShape.endY,
+              snappedSupportId: supportSnap.support.id,
+            };
+          } else {
+            nextShape = proposedShape;
+
+            if (dragState.snappedSupportId !== undefined) {
+              dragStateRef.current = {
+                ...dragState,
+                snappedSupportId: undefined,
+              };
+            }
+          }
+        }
+
+        const actualDeltaX = nextShape.startX - currentShape.startX;
+        const actualDeltaY = nextShape.startY - currentShape.startY;
+
+        if (actualDeltaX !== 0 || actualDeltaY !== 0) {
           setDrawnShapes((current) =>
             current.map((shape) =>
-              shape.id === dragState.id
-                ? {
-                    ...shape,
-                    startX: shape.startX + deltaX,
-                    startY: shape.startY + deltaY,
-                    endX: shape.endX + deltaX,
-                    endY: shape.endY + deltaY,
-                  }
-                : shape,
+              shape.id === dragState.id ? nextShape : shape,
             ),
           );
 
@@ -2066,21 +2337,17 @@ export default function Home() {
               item.shapeId === dragState.id
                 ? {
                     ...item,
-                    startX: item.startX + deltaX,
-                    startY: item.startY + deltaY,
-                    endX: item.endX + deltaX,
-                    endY: item.endY + deltaY,
+                    startX: item.startX + actualDeltaX,
+                    startY: item.startY + actualDeltaY,
+                    endX: item.endX + actualDeltaX,
+                    endY: item.endY + actualDeltaY,
                   }
                 : item,
             ),
           );
         }
 
-        dragStateRef.current = {
-          ...dragState,
-          lastClientX: event.clientX,
-          lastClientY: event.clientY,
-        };
+        return;
       }
 
       return;
@@ -2521,6 +2788,7 @@ export default function Home() {
               } Z`}
             />
             <line x1={x - 20} y1={y + 27} x2={x + 20} y2={y + 27} />
+            {!draft && "id" in item ? renderSupportReactions(item) : null}
           </g>
         );
       }
@@ -2537,6 +2805,7 @@ export default function Home() {
             <circle className="support-body" cx={x - 8} cy={y + 25} r="3" />
             <circle className="support-body" cx={x + 8} cy={y + 25} r="3" />
             <line x1={x - 20} y1={y + 30} x2={x + 20} y2={y + 30} />
+            {!draft && "id" in item ? renderSupportReactions(item) : null}
           </g>
         );
       }
@@ -2554,6 +2823,7 @@ export default function Home() {
               y2={y + offset + 7}
             />
           ))}
+          {!draft && "id" in item ? renderSupportReactions(item) : null}
         </g>
       );
     }
