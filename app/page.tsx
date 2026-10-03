@@ -982,15 +982,37 @@ export default function Home() {
     return bestMatch;
   }
 
-  function isSupportAttached(support: SupportItem) {
-    return drawnShapes.some(
-      (shape) =>
-        getSupportSnapForShape(
-          shape,
-          support,
-          SUPPORT_CONTACT_EPSILON_PX / zoom,
-        ) !== null,
+  function getSupportAttachment(support: SupportItem) {
+    return getBestShapeSnapForSupport(
+      support,
+      SUPPORT_CONTACT_EPSILON_PX / zoom,
     );
+  }
+
+  function isSupportAttached(support: SupportItem) {
+    return getSupportAttachment(support) !== null;
+  }
+
+  function getSupportRotationDegrees(support: SupportItem) {
+    if (support.kind === "Fixed Support") return 0;
+
+    const attachment = getSupportAttachment(support);
+
+    if (!attachment) return 0;
+
+    const displayShape = getDisplayShape(attachment.shape);
+    const bounds = getShapeBounds(displayShape);
+    const centerX = bounds.x + bounds.width / 2;
+    const centerY = bounds.y + bounds.height / 2;
+    const contact = attachment.contactPoint;
+    const deltaX = contact.x - centerX;
+    const deltaY = contact.y - centerY;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      return deltaX < 0 ? 90 : -90;
+    }
+
+    return deltaY < 0 ? 180 : 0;
   }
 
   function renderSupportReactions(support: SupportItem) {
@@ -1000,22 +1022,29 @@ export default function Home() {
     const reactionLength = 46 / zoom;
 
     if (support.kind === "Roller Support") {
+      const rotation = getSupportRotationDegrees(support);
+      const radians = rotation * (Math.PI / 180);
+      const reactionEndX =
+        point.x + Math.sin(radians) * reactionLength;
+      const reactionEndY =
+        point.y - Math.cos(radians) * reactionLength;
+
       return (
         <g className="support-reactions">
           <line
             className="support-reaction"
             x1={point.x}
             y1={point.y}
-            x2={point.x}
-            y2={point.y - reactionLength}
+            x2={reactionEndX}
+            y2={reactionEndY}
             markerEnd="url(#force-arrowhead)"
           />
           <text
             className="support-reaction-label"
-            x={point.x + 7 / zoom}
-            y={point.y - reactionLength + 10 / zoom}
+            x={reactionEndX + 7 / zoom}
+            y={reactionEndY - 7 / zoom}
           >
-            Rᵧ
+            R
           </text>
         </g>
       );
@@ -2948,6 +2977,9 @@ export default function Home() {
       const y = item.startY;
 
       if (item.kind === "Pin Support") {
+        const rotation =
+          !draft && "id" in item ? getSupportRotationDegrees(item) : 0;
+
         return (
           <g
             key={key}
@@ -2958,19 +2990,24 @@ export default function Home() {
                 : undefined
             }
           >
-            <path
-              className="support-body"
-              d={`M ${x} ${y} L ${x - 15} ${y + 23} L ${x + 15} ${
-                y + 23
-              } Z`}
-            />
-            <line x1={x - 20} y1={y + 27} x2={x + 20} y2={y + 27} />
+            <g transform={`rotate(${rotation} ${x} ${y})`}>
+              <path
+                className="support-body"
+                d={`M ${x} ${y} L ${x - 15} ${y + 23} L ${x + 15} ${
+                  y + 23
+                } Z`}
+              />
+              <line x1={x - 20} y1={y + 27} x2={x + 20} y2={y + 27} />
+            </g>
             {!draft && "id" in item ? renderSupportReactions(item) : null}
           </g>
         );
       }
 
       if (item.kind === "Roller Support") {
+        const rotation =
+          !draft && "id" in item ? getSupportRotationDegrees(item) : 0;
+
         return (
           <g
             key={key}
@@ -2981,15 +3018,17 @@ export default function Home() {
                 : undefined
             }
           >
-            <path
-              className="support-body"
-              d={`M ${x} ${y} L ${x - 14} ${y + 20} L ${x + 14} ${
-                y + 20
-              } Z`}
-            />
-            <circle className="support-body" cx={x - 8} cy={y + 25} r="3" />
-            <circle className="support-body" cx={x + 8} cy={y + 25} r="3" />
-            <line x1={x - 20} y1={y + 30} x2={x + 20} y2={y + 30} />
+            <g transform={`rotate(${rotation} ${x} ${y})`}>
+              <path
+                className="support-body"
+                d={`M ${x} ${y} L ${x - 14} ${y + 20} L ${x + 14} ${
+                  y + 20
+                } Z`}
+              />
+              <circle className="support-body" cx={x - 8} cy={y + 25} r="3" />
+              <circle className="support-body" cx={x + 8} cy={y + 25} r="3" />
+              <line x1={x - 20} y1={y + 30} x2={x + 20} y2={y + 30} />
+            </g>
             {!draft && "id" in item ? renderSupportReactions(item) : null}
           </g>
         );
