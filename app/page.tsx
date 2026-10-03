@@ -1839,16 +1839,16 @@ export default function Home() {
 
     const normalizedAngle =
       ((enteredAngle % 360) + 360) % 360;
-    const appliedAngle =
-      orthogonalForces
-        ? (Math.round(normalizedAngle / 90) * 90) % 360
-        : normalizedAngle;
-    const radians = appliedAngle * (Math.PI / 180);
 
     setOverlayItems((current) =>
       current.map((item) => {
         if (item.category !== "force" || item.id !== id) return item;
 
+        const appliedAngle =
+          item.kind === "Applied Force" && orthogonalForces
+            ? (Math.round(normalizedAngle / 90) * 90) % 360
+            : normalizedAngle;
+        const radians = appliedAngle * (Math.PI / 180);
         const length =
           item.kind === "Applied Force"
             ? APPLIED_FORCE_LENGTH
