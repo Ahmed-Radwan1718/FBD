@@ -744,19 +744,22 @@ line.canvas-shape.saved-shape {
 }
 
 .sidebar-force-name {
-  width: 24px;
-  text-align: center;
+  width: 62px;
+  min-width: 0;
+  flex: 1 1 62px;
+  text-align: left;
 }
 
 .sidebar-force-value {
   min-width: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 3px;
 }
 
 .sidebar-force-value input {
-  width: 48px;
+  width: 40px;
   text-align: right;
 }
 
