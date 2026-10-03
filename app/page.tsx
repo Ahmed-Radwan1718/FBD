@@ -71,7 +71,7 @@ type DraftOverlay =
 
 type DragState = {
   id: number;
-  target: "shape" | "force";
+  target: "shape" | "force" | "support";
   pointerId: number;
   lastClientX: number;
   lastClientY: number;
@@ -578,6 +578,38 @@ export default function Home() {
       originEndX: shape.endX,
       originEndY: shape.endY,
       snappedSupportId: attachedSupport?.support.id,
+    };
+  }
+
+  function handleSupportPointerDown(
+    event: ReactPointerEvent<SVGGElement>,
+    id: number,
+  ) {
+    event.stopPropagation();
+
+    const supportItem = overlayItems.find(
+      (item) => item.category === "support" && item.id === id,
+    );
+
+    if (!supportItem || supportItem.category !== "support") return;
+
+    clearDrawingTools();
+    setSelectedShapeId(null);
+    setSelectedForceId(null);
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    dragStateRef.current = {
+      id,
+      target: "support",
+      pointerId: event.pointerId,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+      originClientX: event.clientX,
+      originClientY: event.clientY,
+      originStartX: supportItem.startX,
+      originStartY: supportItem.startY,
+      originEndX: supportItem.endX,
+      originEndY: supportItem.endY,
     };
   }
 
@@ -2243,6 +2275,37 @@ export default function Home() {
       }
 
       if (
+        dragState.target === "support" &&
+        dragState.originClientX !== undefined &&
+        dragState.originClientY !== undefined &&
+        dragState.originStartX !== undefined &&
+        dragState.originStartY !== undefined &&
+        dragState.originEndX !== undefined &&
+        dragState.originEndY !== undefined
+      ) {
+        const totalDeltaX =
+          (event.clientX - dragState.originClientX) / zoom;
+        const totalDeltaY =
+          (event.clientY - dragState.originClientY) / zoom;
+
+        setOverlayItems((current) =>
+          current.map((item) =>
+            item.category === "support" && item.id === dragState.id
+              ? {
+                  ...item,
+                  startX: dragState.originStartX! + totalDeltaX,
+                  startY: dragState.originStartY! + totalDeltaY,
+                  endX: dragState.originEndX! + totalDeltaX,
+                  endY: dragState.originEndY! + totalDeltaY,
+                }
+              : item,
+          ),
+        );
+
+        return;
+      }
+
+      if (
         dragState.target === "shape" &&
         dragState.originClientX !== undefined &&
         dragState.originClientY !== undefined &&
@@ -2566,7 +2629,9 @@ export default function Home() {
       item.category === "connection" && item.kind === "Cable"
         ? "connection-cable"
         : "",
-      !draft && item.category === "force" && "id" in item
+      !draft &&
+      "id" in item &&
+      (item.category === "force" || item.category === "support")
         ? "is-selectable"
         : "",
       isSelectedForce ? "is-selected" : "",
@@ -2780,7 +2845,15 @@ export default function Home() {
 
       if (item.kind === "Pin Support") {
         return (
-          <g key={key} className={className}>
+          <g
+            key={key}
+            className={className}
+            onPointerDown={
+              !draft && "id" in item
+                ? (event) => handleSupportPointerDown(event, item.id)
+                : undefined
+            }
+          >
             <path
               className="support-body"
               d={`M ${x} ${y} L ${x - 15} ${y + 23} L ${x + 15} ${
@@ -2795,7 +2868,15 @@ export default function Home() {
 
       if (item.kind === "Roller Support") {
         return (
-          <g key={key} className={className}>
+          <g
+            key={key}
+            className={className}
+            onPointerDown={
+              !draft && "id" in item
+                ? (event) => handleSupportPointerDown(event, item.id)
+                : undefined
+            }
+          >
             <path
               className="support-body"
               d={`M ${x} ${y} L ${x - 14} ${y + 20} L ${x + 14} ${
@@ -2811,7 +2892,15 @@ export default function Home() {
       }
 
       return (
-        <g key={key} className={className}>
+        <g
+          key={key}
+          className={className}
+          onPointerDown={
+            !draft && "id" in item
+              ? (event) => handleSupportPointerDown(event, item.id)
+              : undefined
+          }
+        >
           <line x1={x} y1={y - 22} x2={x} y2={y + 22} />
           <line x1={x} y1={y} x2={x + 24} y2={y} />
           {[-18, -9, 0, 9, 18].map((offset) => (
