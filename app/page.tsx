@@ -2111,7 +2111,7 @@ export default function Home() {
       ? screenBottom - widthInsideOffset
       : widthOutsideY;
 
-    const heightOutsideX = screenRight + 24;
+    const heightOutsideX = screenRight + 32;
     const heightInsideOffset = Math.min(
       24,
       Math.max(12, screenWidth / 3),
