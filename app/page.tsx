@@ -3345,26 +3345,31 @@ export default function Home() {
             <ChevronIcon open={shapesOpen} />
           </button>
 
-          {shapesOpen && (
-            <div className="shape-list">
-              {shapes.map((shape) => {
-                const active = selectedShape === shape;
+          <div
+            className={`section-content ${shapesOpen ? "is-open" : ""}`}
+            aria-hidden={!shapesOpen}
+          >
+            <div className="section-content-inner">
+              <div className="shape-list">
+                {shapes.map((shape) => {
+                  const active = selectedShape === shape;
 
-                return (
-                  <button
-                    className={`shape-button ${active ? "is-active" : ""}`}
-                    type="button"
-                    key={shape}
-                    aria-pressed={active}
-                    onClick={() => toggleShapeTool(shape)}
-                  >
-                    <ShapeIcon shape={shape} />
-                    <span>{shape}</span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      className={`shape-button ${active ? "is-active" : ""}`}
+                      type="button"
+                      key={shape}
+                      aria-pressed={active}
+                      onClick={() => toggleShapeTool(shape)}
+                    >
+                      <ShapeIcon shape={shape} />
+                      <span>{shape}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="tool-section">
@@ -3378,8 +3383,11 @@ export default function Home() {
             <ChevronIcon open={forcesOpen} />
           </button>
 
-          {forcesOpen && (
-            <>
+          <div
+            className={`section-content ${forcesOpen ? "is-open" : ""}`}
+            aria-hidden={!forcesOpen}
+          >
+            <div className="section-content-inner">
               <div className="shape-list">
                 {forceTools.map((tool) => {
                   const active = selectedForceTool === tool;
@@ -3487,8 +3495,8 @@ export default function Home() {
                   </label>
                 </div>
               )}
-            </>
-          )}
+            </div>
+          </div>
         </div>
 
         <div className="tool-section">
@@ -3502,26 +3510,31 @@ export default function Home() {
             <ChevronIcon open={supportsOpen} />
           </button>
 
-          {supportsOpen && (
-            <div className="shape-list">
-              {supportTools.map((tool) => {
-                const active = selectedSupportTool === tool;
+          <div
+            className={`section-content ${supportsOpen ? "is-open" : ""}`}
+            aria-hidden={!supportsOpen}
+          >
+            <div className="section-content-inner">
+              <div className="shape-list">
+                {supportTools.map((tool) => {
+                  const active = selectedSupportTool === tool;
 
-                return (
-                  <button
-                    className={`shape-button ${active ? "is-active" : ""}`}
-                    type="button"
-                    key={tool}
-                    aria-pressed={active}
-                    onClick={() => toggleSupportTool(tool)}
-                  >
-                    <ToolIcon tool={tool} />
-                    <span>{tool}</span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      className={`shape-button ${active ? "is-active" : ""}`}
+                      type="button"
+                      key={tool}
+                      aria-pressed={active}
+                      onClick={() => toggleSupportTool(tool)}
+                    >
+                      <ToolIcon tool={tool} />
+                      <span>{tool}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="tool-section">
@@ -3535,26 +3548,31 @@ export default function Home() {
             <ChevronIcon open={connectionsOpen} />
           </button>
 
-          {connectionsOpen && (
-            <div className="shape-list">
-              {connectionTools.map((tool) => {
-                const active = selectedConnectionTool === tool;
+          <div
+            className={`section-content ${connectionsOpen ? "is-open" : ""}`}
+            aria-hidden={!connectionsOpen}
+          >
+            <div className="section-content-inner">
+              <div className="shape-list">
+                {connectionTools.map((tool) => {
+                  const active = selectedConnectionTool === tool;
 
-                return (
-                  <button
-                    className={`shape-button ${active ? "is-active" : ""}`}
-                    type="button"
-                    key={tool}
-                    aria-pressed={active}
-                    onClick={() => toggleConnectionTool(tool)}
-                  >
-                    <ToolIcon tool={tool} />
-                    <span>{tool}</span>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      className={`shape-button ${active ? "is-active" : ""}`}
+                      type="button"
+                      key={tool}
+                      aria-pressed={active}
+                      onClick={() => toggleConnectionTool(tool)}
+                    >
+                      <ToolIcon tool={tool} />
+                      <span>{tool}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="tool-section">
@@ -3568,47 +3586,52 @@ export default function Home() {
             <ChevronIcon open={canvasControlsOpen} />
           </button>
 
-          {canvasControlsOpen && (
-            <div className="shape-list">
-              <button
-                className={`shape-button ${showGrid ? "is-active" : ""}`}
-                type="button"
-                aria-pressed={showGrid}
-                onClick={() => setShowGrid((value) => !value)}
-              >
-                <ToolIcon tool="Grid" />
-                <span>Grid</span>
-              </button>
+          <div
+            className={`section-content ${canvasControlsOpen ? "is-open" : ""}`}
+            aria-hidden={!canvasControlsOpen}
+          >
+            <div className="section-content-inner">
+              <div className="shape-list">
+                <button
+                  className={`shape-button ${showGrid ? "is-active" : ""}`}
+                  type="button"
+                  aria-pressed={showGrid}
+                  onClick={() => setShowGrid((value) => !value)}
+                >
+                  <ToolIcon tool="Grid" />
+                  <span>Grid</span>
+                </button>
 
-              <button
-                className={`shape-button ${snapToGrid ? "is-active" : ""}`}
-                type="button"
-                aria-pressed={snapToGrid}
-                onClick={() => setSnapToGrid((value) => !value)}
-              >
-                <ToolIcon tool="Snap to grid" />
-                <span>Snap to grid</span>
-              </button>
+                <button
+                  className={`shape-button ${snapToGrid ? "is-active" : ""}`}
+                  type="button"
+                  aria-pressed={snapToGrid}
+                  onClick={() => setSnapToGrid((value) => !value)}
+                >
+                  <ToolIcon tool="Snap to grid" />
+                  <span>Snap to grid</span>
+                </button>
 
-              <button
-                className="shape-button"
-                type="button"
-                onClick={fitAllView}
-              >
-                <ToolIcon tool="Fit all" />
-                <span>Fit all</span>
-              </button>
+                <button
+                  className="shape-button"
+                  type="button"
+                  onClick={fitAllView}
+                >
+                  <ToolIcon tool="Fit all" />
+                  <span>Fit all</span>
+                </button>
 
-              <button
-                className="shape-button"
-                type="button"
-                onClick={resetView}
-              >
-                <ToolIcon tool="Reset view" />
-                <span>Reset view</span>
-              </button>
+                <button
+                  className="shape-button"
+                  type="button"
+                  onClick={resetView}
+                >
+                  <ToolIcon tool="Reset view" />
+                  <span>Reset view</span>
+                </button>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </aside>
 
