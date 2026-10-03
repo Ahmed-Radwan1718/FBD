@@ -1008,6 +1008,22 @@ export default function Home() {
     const deltaX = contact.x - centerX;
     const deltaY = contact.y - centerY;
 
+    if (
+      displayShape.shape === "Rectangle" ||
+      displayShape.shape === "Square"
+    ) {
+      const normalizedDeltaX =
+        Math.abs(deltaX) / Math.max(bounds.width / 2, 0.001);
+      const normalizedDeltaY =
+        Math.abs(deltaY) / Math.max(bounds.height / 2, 0.001);
+
+      if (normalizedDeltaX > normalizedDeltaY) {
+        return deltaX < 0 ? 90 : -90;
+      }
+
+      return deltaY < 0 ? 180 : 0;
+    }
+
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       return deltaX < 0 ? 90 : -90;
     }
