@@ -595,7 +595,7 @@ export default function Home() {
   }
 
   function handleForceRotatePointerDown(
-    event: ReactPointerEvent<SVGCircleElement>,
+    event: ReactPointerEvent<SVGElement>,
     id: number,
   ) {
     event.stopPropagation();
@@ -1791,15 +1791,30 @@ export default function Home() {
 
       const point = getDrawingPoint(event);
 
-      setDraftOverlay((current) =>
-        current
-          ? {
-              ...current,
-              endX: point.x,
-              endY: point.y,
-            }
-          : null,
-      );
+      setDraftOverlay((current) => {
+        if (!current) return null;
+
+        const nextDraft = {
+          ...current,
+          endX: point.x,
+          endY: point.y,
+        };
+
+        if (
+          nextDraft.category !== "force" ||
+          nextDraft.kind !== "Applied Force"
+        ) {
+          return nextDraft;
+        }
+
+        const snappedForce = snapAppliedForceToShape({
+          ...nextDraft,
+          id: -1,
+        });
+
+        const { id: _temporaryId, ...snappedDraft } = snappedForce;
+        return snappedDraft;
+      });
 
       return;
     }
@@ -2131,15 +2146,28 @@ export default function Home() {
                 x2={rotateHandleX}
                 y2={rotateHandleY}
               />
-              <circle
+              <g
                 className="force-rotate-handle"
-                cx={rotateHandleX}
-                cy={rotateHandleY}
-                r={6 / zoom}
+                transform={`translate(${rotateHandleX} ${rotateHandleY}) scale(${1 / zoom})`}
                 onPointerDown={(event) =>
                   handleForceRotatePointerDown(event, item.id)
                 }
-              />
+              >
+                <circle
+                  className="force-rotate-handle-bg"
+                  cx="0"
+                  cy="0"
+                  r="9"
+                />
+                <path
+                  className="force-rotate-icon"
+                  d="M -4.8 -1.8 A 5.7 5.7 0 1 1 -1.4 5.2"
+                />
+                <path
+                  className="force-rotate-icon"
+                  d="M -5.2 -5.1 L -4.8 -1.8 L -1.7 -2.8"
+                />
+              </g>
             </>
           )}
 
