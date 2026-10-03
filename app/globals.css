@@ -76,6 +76,10 @@ button {
   vector-effect: non-scaling-stroke;
 }
 
+rect.canvas-shape {
+  shape-rendering: crispEdges;
+}
+
 .canvas-shape.saved-shape {
   pointer-events: all;
   cursor: grab;
